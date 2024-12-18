@@ -10,9 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wayland-client.h>
-#include "config.h"
 #include "pool-buffer.h"
-#include "util.h"
 
 static int anonymous_shm_open(void) {
 	int retries = 100;

@@ -1,12 +1,11 @@
-#ifndef _SWAYNAG_SWAYNAG_H
-#define _SWAYNAG_SWAYNAG_H
+#ifndef NAG_H
+#define NAG_H
 #include <stdint.h>
 #include <strings.h>
+#include "cursor-shape-v1-client-protocol.h"
 #include "list.h"
 #include "pool-buffer.h"
-#include "cursor-shape-v1-client-protocol.h"
-
-#include "swaynag/types.h"
+#include "types.h"
 
 #define SWAYNAG_MAX_HEIGHT 500
 
@@ -108,4 +107,4 @@ void swaynag_run(struct swaynag *swaynag);
 
 void swaynag_destroy(struct swaynag *swaynag);
 
-#endif
+#endif /* NAG_H */

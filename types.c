@@ -6,9 +6,7 @@
 #include <strings.h>
 #include "list.h"
 #include "log.h"
-#include "swaynag/config.h"
-#include "swaynag/types.h"
-#include "util.h"
+#include "types.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 struct swaynag_type *swaynag_type_new(const char *name) {

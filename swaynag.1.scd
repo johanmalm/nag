@@ -34,14 +34,6 @@ _swaynag_ [options...]
 	terminal. Multiple buttons can be defined by providing the flag multiple
 	times.
 
-*-c, --config* <path>
-	The config file to use. By default, the following paths are checked:
-	_$HOME/.swaynag/config_, _$XDG\_CONFIG\_HOME/swaynag/config_, and
-	_SYSCONFDIR/swaynag/config_. All flags aside from this one and _debug_ are
-	valid options in the configuration file using the format
-	_long-option=value_. All leading dashes should be omitted and the equals
-	sign is required. See swaynag(5) for more information.
-
 *-d, --debug*
 	Enable debugging.
 

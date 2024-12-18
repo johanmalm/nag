@@ -1,15 +1,15 @@
-#include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include "log.h"
 #include "list.h"
-#include "swaynag/render.h"
-#include "swaynag/swaynag.h"
-#include "swaynag/types.h"
+#include "log.h"
+#include "render.h"
+#include "swaynag.h"
+#include "types.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static void nop() {
