@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wayland-client.h>
@@ -503,9 +505,44 @@ void swaynag_setup(struct swaynag *swaynag) {
 void swaynag_run(struct swaynag *swaynag) {
 	swaynag->run_display = true;
 	render_frame(swaynag);
-	while (swaynag->run_display
-			&& wl_display_dispatch(swaynag->display) != -1) {
-		// This is intentionally left blank
+	int timer_fd = -1;
+	if (swaynag->details.close_timeout != 0) {
+		timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+		struct itimerspec timeout = {
+			.it_value.tv_sec = swaynag->details.close_timeout,
+		};
+		timerfd_settime(timer_fd, 0, &timeout, NULL);
+	}
+	struct pollfd fds[] = {
+		{
+			.fd = wl_display_get_fd(swaynag->display),
+			.events = POLLIN,
+		}, {
+			.fd = timer_fd,
+			.events = POLLIN,
+		}
+	};
+	while (swaynag->run_display) {
+		while (wl_display_prepare_read(swaynag->display) != 0) {
+			wl_display_dispatch_pending(swaynag->display);
+		}
+		poll(fds, 2, -1);
+		if (fds[0].revents & POLLIN) {
+			if (timer_fd >= 0 && swaynag->details.close_timeout_cancel) {
+				close(timer_fd);
+				timer_fd = -1;
+				fds[1].fd = -1;
+			}
+			wl_display_read_events(swaynag->display);
+		} else {
+			wl_display_cancel_read(swaynag->display);
+		}
+		if (timer_fd >= 0 && fds[1].revents & POLLIN) {
+			close(timer_fd);
+			timer_fd = -1;
+			fds[1].fd = -1;
+			swaynag->run_display = false;
+		}
 	}
 }
 

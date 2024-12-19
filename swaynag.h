@@ -60,6 +60,8 @@ struct swaynag_details {
 	bool visible;
 	char *message;
 	char *details_text;
+	int close_timeout;
+	bool close_timeout_cancel;
 
 	int x;
 	int y;

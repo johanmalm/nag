@@ -138,7 +138,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		"  -d, --debug                     Enable debugging.\n"
 		"  -e, --edge top|bottom           Set the edge to use.\n"
 		"  -y, --layer overlay|top|bottom|background\n"
-	    "                                  Set the layer to use.\n"
+		"                                  Set the layer to use.\n"
 		"  -f, --font <font>               Set the font to use.\n"
 		"  -h, --help                      Show help message and quit.\n"
 		"  -l, --detailed-message          Read a detailed message from stdin.\n"
@@ -460,6 +460,11 @@ int main(int argc, char **argv) {
 	signal(SIGTERM, sig_handler);
 
 	swaynag_setup(&swaynag);
+
+	/* FIXME: use proper config parsing */
+	swaynag.details.close_timeout = 5;
+	swaynag.details.close_timeout_cancel = true;
+
 	swaynag_run(&swaynag);
 
 cleanup:
