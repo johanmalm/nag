@@ -62,6 +62,7 @@ struct swaynag_details {
 	char *details_text;
 	int close_timeout;
 	bool close_timeout_cancel;
+	bool use_exclusive_zone;
 
 	int x;
 	int y;

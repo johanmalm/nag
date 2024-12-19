@@ -464,6 +464,7 @@ int main(int argc, char **argv) {
 	/* FIXME: use proper config parsing */
 	swaynag.details.close_timeout = 5;
 	swaynag.details.close_timeout_cancel = true;
+	swaynag.details.use_exclusive_zone = false;
 
 	swaynag_run(&swaynag);
 
