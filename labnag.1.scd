@@ -1,12 +1,12 @@
-swaynag(1)
+labnag(1)
 
 # NAME
 
-swaynag - Show a warning or error message with buttons
+labnag - Show dialog with message and buttons
 
 # SYNOPSIS
 
-_swaynag_ [options...]
+_labnag_ [options...]
 
 # OPTIONS
 
@@ -23,14 +23,14 @@ _swaynag_ [options...]
 
 *-z, --button-dismiss* <text> <action>
 	Create a button with the text _text_ that executes _action_ when pressed,
-	and dismisses swaynag. If the environment variable _TERMINAL_ is set,
+	and dismisses labnag. If the environment variable _TERMINAL_ is set,
 	_action_ will be run inside the terminal. Otherwise, it will fallback to
 	running directly. Multiple buttons can be defined by providing the flag
 	multiple times.
 
 *-Z, --button-dismiss-no-terminal* <text> <action>
 	Create a button with the text _text_ that executes _action_ when pressed,
-	and dismisses swaynag. _action_ will be run directly instead of in a
+	and dismisses labnag. _action_ will be run directly instead of in a
 	terminal. Multiple buttons can be defined by providing the flag multiple
 	times.
 

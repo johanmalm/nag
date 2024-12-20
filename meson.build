@@ -1,5 +1,5 @@
 project(
-  'nag',
+  'labnag',
   'c',
   version: '0.0.0',
   default_options: [
@@ -27,7 +27,7 @@ wayland_scanner_dep = dependency('wayland-scanner', native: true)
 
 sources = files(
   'log.c',
-  'main.c',
+  'labnag.c',
   'pool-buffer.c',
   'render.c',
   'swaynag.c',
