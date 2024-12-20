@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include "list.h"
 #include "log.h"
 #include "swaynag.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
@@ -16,7 +15,6 @@ static struct swaynag swaynag;
 static void
 conf_init(struct conf *conf)
 {
-	conf->name = strdup("foo"); // FIXME
 	conf->font_description = pango_font_description_from_string("pango:Sans 10");
 	conf->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
 		| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
@@ -224,7 +222,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 				button->action = strdup(argv[optind]);
 				button->terminal = c == 'b';
 				button->dismiss = c == 'z' || c == 'Z';
-				list_add(swaynag->buttons, button);
+				wl_list_insert(swaynag->buttons.prev, &button->link);
 			}
 			optind++;
 			break;
@@ -296,9 +294,12 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			break;
 		case 's': // Dismiss Button Text
 			if (swaynag) {
-				struct swaynag_button *button_close = swaynag->buttons->items[0];
-				free(button_close->text);
-				button_close->text = strdup(optarg);
+				struct swaynag_button *button;
+				wl_list_for_each(button, &swaynag->buttons, link) {
+					free(button->text);
+					button->text = strdup(optarg);
+					break;
+				}
 			}
 			break;
 		case 't':
@@ -390,14 +391,14 @@ int main(int argc, char **argv) {
 	conf_init(&conf);
 	swaynag.conf = &conf;
 
-	swaynag.buttons = create_list();
+	wl_list_init(&swaynag.buttons);
 	wl_list_init(&swaynag.outputs);
 	wl_list_init(&swaynag.seats);
 
 	struct swaynag_button *button_close = calloc(1, sizeof(struct swaynag_button));
 	button_close->text = strdup("X");
 	button_close->type = SWAYNAG_ACTION_DISMISS;
-	list_add(swaynag.buttons, button_close);
+	wl_list_insert(swaynag.buttons.prev, &button_close->link);
 
 	swaynag.details.details_text = strdup("Toggle details");
 
@@ -420,19 +421,19 @@ int main(int argc, char **argv) {
 		swaynag.details.button_details = calloc(1, sizeof(struct swaynag_button));
 		swaynag.details.button_details->text = strdup(swaynag.details.details_text);
 		swaynag.details.button_details->type = SWAYNAG_ACTION_EXPAND;
-		list_add(swaynag.buttons, swaynag.details.button_details);
+		wl_list_insert(swaynag.buttons.prev, &swaynag.details.button_details->link);
 	}
 
 	sway_log(SWAY_DEBUG, "Output: %s", swaynag.conf->output);
 	sway_log(SWAY_DEBUG, "Anchors: %" PRIu32, swaynag.conf->anchors);
-	sway_log(SWAY_DEBUG, "Type: %s", swaynag.conf->name);
 	sway_log(SWAY_DEBUG, "Message: %s", swaynag.message);
 	char *font = pango_font_description_to_string(swaynag.conf->font_description);
 	sway_log(SWAY_DEBUG, "Font: %s", font);
 	free(font);
 	sway_log(SWAY_DEBUG, "Buttons");
-	for (int i = 0; i < swaynag.buttons->length; i++) {
-		struct swaynag_button *button = swaynag.buttons->items[i];
+
+	struct swaynag_button *button;
+	wl_list_for_each(button, &swaynag.buttons, link) {
 		sway_log(SWAY_DEBUG, "\t[%s] `%s`", button->text, button->action);
 	}
 

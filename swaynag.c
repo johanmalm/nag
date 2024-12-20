@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include "list.h"
 #include "log.h"
 #include "render.h"
 #include "swaynag.h"
@@ -225,8 +224,9 @@ static void wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
 	double x = seat->pointer.x;
 	double y = seat->pointer.y;
-	for (int i = 0; i < swaynag->buttons->length; i++) {
-		struct swaynag_button *nagbutton = swaynag->buttons->items[i];
+
+	struct swaynag_button *nagbutton;
+	wl_list_for_each(nagbutton, &swaynag->buttons, link) {
 		if (x >= nagbutton->x
 				&& y >= nagbutton->y
 				&& x < nagbutton->x + nagbutton->width
@@ -549,13 +549,14 @@ void swaynag_destroy(struct swaynag *swaynag) {
 	swaynag->run_display = false;
 
 	free(swaynag->message);
-	for (int i = 0; i < swaynag->buttons->length; ++i) {
-		struct swaynag_button *button = swaynag->buttons->items[i];
+
+	struct swaynag_button *button, *next;
+	wl_list_for_each_safe(button, next, &swaynag->buttons, link) {
+		wl_list_remove(&button->link);
 		free(button->text);
 		free(button->action);
 		free(button);
 	}
-	list_free(swaynag->buttons);
 	free(swaynag->details.message);
 	free(swaynag->details.details_text);
 	free(swaynag->details.button_up.text);

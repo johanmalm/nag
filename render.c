@@ -250,9 +250,7 @@ static uint32_t render_detailed(cairo_t *cairo, struct swaynag *swaynag,
 }
 
 static uint32_t render_button(cairo_t *cairo, struct swaynag *swaynag,
-		int button_index, int *x) {
-	struct swaynag_button *button = swaynag->buttons->items[button_index];
-
+		struct swaynag_button *button, int *x) {
 	int text_width, text_height;
 	get_text_size(cairo, swaynag->conf->font_description, &text_width, &text_height, NULL,
 			1, true, "%s", button->text);
@@ -302,13 +300,13 @@ static uint32_t render_to_cairo(cairo_t *cairo, struct swaynag *swaynag) {
 	max_height = h > max_height ? h : max_height;
 
 	int x = swaynag->width - swaynag->conf->button_margin_right;
-	for (int i = 0; i < swaynag->buttons->length; i++) {
-		h = render_button(cairo, swaynag, i, &x);
+	x -= swaynag->conf->button_gap_close;
+
+	struct swaynag_button *button;
+	wl_list_for_each(button, &swaynag->buttons, link) {
+		h = render_button(cairo, swaynag, button, &x);
 		max_height = h > max_height ? h : max_height;
 		x -= swaynag->conf->button_gap;
-		if (i == 0) {
-			x -= swaynag->conf->button_gap_close;
-		}
 	}
 
 	if (swaynag->details.visible) {

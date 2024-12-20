@@ -3,14 +3,11 @@
 #include <stdint.h>
 #include <strings.h>
 #include "cursor-shape-v1-client-protocol.h"
-#include "list.h"
 #include "pool-buffer.h"
 
 #define SWAYNAG_MAX_HEIGHT 500
 
 struct conf {
-	char *name;
-
 	PangoFontDescription *font_description;
 	char *output;
 	uint32_t anchors;
@@ -81,6 +78,7 @@ struct swaynag_button {
 	int height;
 	bool terminal;
 	bool dismiss;
+	struct wl_list link;
 };
 
 struct swaynag_details {
@@ -127,7 +125,7 @@ struct swaynag {
 
 	struct conf *conf;
 	char *message;
-	list_t *buttons;
+	struct wl_list buttons;
 	struct swaynag_details details;
 };
 

@@ -26,7 +26,6 @@ wayland_protos = dependency('wayland-protocols', version: '>=1.24')
 wayland_scanner_dep = dependency('wayland-scanner', native: true)
 
 sources = files(
-  'list.c',
   'log.c',
   'main.c',
   'pool-buffer.c',
