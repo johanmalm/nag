@@ -11,7 +11,6 @@
 #include "log.h"
 #include "render.h"
 #include "swaynag.h"
-#include "types.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static void nop() {
@@ -338,7 +337,7 @@ static void output_name(void *data, struct wl_output *output,
 	struct swaynag_output *swaynag_output = data;
 	swaynag_output->name = strdup(name);
 
-	const char *outname = swaynag_output->swaynag->type->output;
+	const char *outname = swaynag_output->swaynag->conf->output;
 	if (!swaynag_output->swaynag->output && outname &&
 			strcmp(outname, name) == 0) {
 		sway_log(SWAY_DEBUG, "Using output %s", name);
@@ -474,8 +473,8 @@ void swaynag_setup(struct swaynag *swaynag) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (!swaynag->output && swaynag->type->output) {
-		sway_log(SWAY_ERROR, "Output '%s' not found", swaynag->type->output);
+	if (!swaynag->output && swaynag->conf->output) {
+		sway_log(SWAY_ERROR, "Output '%s' not found", swaynag->conf->output);
 		swaynag_destroy(swaynag);
 		exit(EXIT_FAILURE);
 	}
@@ -491,13 +490,13 @@ void swaynag_setup(struct swaynag *swaynag) {
 	swaynag->layer_surface = zwlr_layer_shell_v1_get_layer_surface(
 			swaynag->layer_shell, swaynag->surface,
 			swaynag->output ? swaynag->output->wl_output : NULL,
-			swaynag->type->layer,
+			swaynag->conf->layer,
 			"swaynag");
 	assert(swaynag->layer_surface);
 	zwlr_layer_surface_v1_add_listener(swaynag->layer_surface,
 			&layer_surface_listener, swaynag);
 	zwlr_layer_surface_v1_set_anchor(swaynag->layer_surface,
-			swaynag->type->anchors);
+			swaynag->conf->anchors);
 
 	wl_registry_destroy(registry);
 }
@@ -561,10 +560,6 @@ void swaynag_destroy(struct swaynag *swaynag) {
 	free(swaynag->details.details_text);
 	free(swaynag->details.button_up.text);
 	free(swaynag->details.button_down.text);
-
-	if (swaynag->type) {
-		swaynag_type_free(swaynag->type);
-	}
 
 	if (swaynag->layer_surface) {
 		zwlr_layer_surface_v1_destroy(swaynag->layer_surface);

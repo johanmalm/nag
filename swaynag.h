@@ -5,9 +5,36 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "list.h"
 #include "pool-buffer.h"
-#include "types.h"
 
 #define SWAYNAG_MAX_HEIGHT 500
+
+struct conf {
+	char *name;
+
+	PangoFontDescription *font_description;
+	char *output;
+	uint32_t anchors;
+	int32_t layer; // enum zwlr_layer_shell_v1_layer or -1 if unset
+
+	// Colors
+	uint32_t button_text;
+	uint32_t button_background;
+	uint32_t details_background;
+	uint32_t background;
+	uint32_t text;
+	uint32_t border;
+	uint32_t border_bottom;
+
+	// Sizing
+	ssize_t bar_border_thickness;
+	ssize_t message_padding;
+	ssize_t details_border_thickness;
+	ssize_t button_border_thickness;
+	ssize_t button_gap;
+	ssize_t button_gap_close;
+	ssize_t button_margin_right;
+	ssize_t button_padding;
+};
 
 struct swaynag;
 
@@ -98,7 +125,7 @@ struct swaynag {
 	struct pool_buffer buffers[2];
 	struct pool_buffer *current_buffer;
 
-	struct swaynag_type *type;
+	struct conf *conf;
 	char *message;
 	list_t *buttons;
 	struct swaynag_details details;

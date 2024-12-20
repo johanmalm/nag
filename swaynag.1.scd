@@ -66,12 +66,6 @@ _swaynag_ [options...]
 *-s, --dismiss-button* <text>
 	Sets the text for the dismiss nagbar button. The default is _X_.
 
-*-t, --type* <type>
-	Set the message type. Two types are created by default _error_ and
-	_warning_. Custom types can be defined in the config file. See
-	_--config_ and swaynag(5) for details. Both of the default types can be
-	overridden in the config file as well.
-
 *-v, --version*
 	Show the version number and quit.
 
@@ -122,6 +116,3 @@ _swaynag_ [options...]
 *--button-padding* <padding>
 	Set the padding for the button text.
 
-# SEE
-
-swaynag(5)

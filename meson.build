@@ -32,7 +32,6 @@ sources = files(
   'pool-buffer.c',
   'render.c',
   'swaynag.c',
-  'types.c',
 )
 
 wl_protocol_dir = wayland_protos.get_variable('pkgdatadir')

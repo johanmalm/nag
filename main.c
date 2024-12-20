@@ -1,16 +1,50 @@
 #include <ctype.h>
 #include <getopt.h>
+#include <pango/pangocairo.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include "list.h"
 #include "log.h"
 #include "swaynag.h"
-#include "types.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 static struct swaynag swaynag;
+
+static void
+conf_init(struct conf *conf)
+{
+	conf->name = strdup("foo"); // FIXME
+	conf->font_description = pango_font_description_from_string("pango:Sans 10");
+	conf->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+		| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+		| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+	conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+	conf->button_background = 0x333333FF;
+	conf->details_background = 0x333333FF;
+	conf->background = 0x323232FF;
+	conf->text = 0xFFFFFFFF;
+	conf->button_text = 0xFFFFFFFF;
+	conf->border = 0x222222FF;
+	conf->border_bottom = 0x444444FF;
+	conf->bar_border_thickness = 2;
+	conf->message_padding = 8;
+	conf->details_border_thickness = 3;
+	conf->button_border_thickness = 3;
+	conf->button_gap = 20;
+	conf->button_gap_close = 15;
+	conf->button_margin_right = 2;
+	conf->button_padding = 3;
+	conf->button_background = 0x680A0AFF;
+	conf->details_background = 0x680A0AFF;
+	conf->background = 0x900000FF;
+	conf->text = 0xFFFFFFFF;
+	conf->button_text = 0xFFFFFFFF;
+	conf->border = 0xD92424FF;
+	conf->border_bottom = 0x470909FF;
+}
 
 static bool parse_color(const char *color, uint32_t *result) {
 	if (color[0] == '#') {
@@ -66,7 +100,7 @@ freebuf:
 }
 
 int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
-		list_t *types, struct swaynag_type *type, char **config, bool *debug) {
+		struct conf *conf, bool *debug) {
 	enum type_options {
 		TO_COLOR_BACKGROUND = 256,
 		TO_COLOR_BORDER,
@@ -100,7 +134,6 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		{"message", required_argument, NULL, 'm'},
 		{"output", required_argument, NULL, 'o'},
 		{"dismiss-button", required_argument, NULL, 's'},
-		{"type", required_argument, NULL, 't'},
 		{"version", no_argument, NULL, 'v'},
 
 		{"background", required_argument, NULL, TO_COLOR_BACKGROUND},
@@ -146,7 +179,6 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		"  -m, --message <msg>             Set the message text.\n"
 		"  -o, --output <output>           Set the output to use.\n"
 		"  -s, --dismiss-button <text>     Set the dismiss button text.\n"
-		"  -t, --type <type>               Set the message type.\n"
 		"  -v, --version                   Show the version number and quit.\n"
 		"\n"
 		"The following appearance options can also be given:\n"
@@ -196,55 +228,44 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			}
 			optind++;
 			break;
-		case 'c': // Config
-			if (config) {
-				*config = strdup(optarg);
-			}
-			break;
 		case 'd': // Debug
 			if (debug) {
 				*debug = true;
 			}
 			break;
 		case 'e': // Edge
-			if (type) {
-				if (strcmp(optarg, "top") == 0) {
-					type->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
-						| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
-						| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-				} else if (strcmp(optarg, "bottom") == 0) {
-					type->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM
-						| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
-						| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
-				} else {
-					fprintf(stderr, "Invalid edge: %s\n", optarg);
-					return EXIT_FAILURE;
-				}
+			if (strcmp(optarg, "top") == 0) {
+				conf->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+					| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+					| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			} else if (strcmp(optarg, "bottom") == 0) {
+				conf->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM
+					| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
+					| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+			} else {
+				fprintf(stderr, "Invalid edge: %s\n", optarg);
+				return EXIT_FAILURE;
 			}
 			break;
 		case 'y': // Layer
-			if (type) {
-				if (strcmp(optarg, "background") == 0) {
-					type->layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
-				} else if (strcmp(optarg, "bottom") == 0) {
-					type->layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
-				} else if (strcmp(optarg, "top") == 0) {
-					type->layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
-				} else if (strcmp(optarg, "overlay") == 0) {
-					type->layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
-				} else {
-					fprintf(stderr, "Invalid layer: %s\n"
-							"Usage: --layer overlay|top|bottom|background\n",
-							optarg);
-					return EXIT_FAILURE;
-				}
+			if (strcmp(optarg, "background") == 0) {
+				conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
+			} else if (strcmp(optarg, "bottom") == 0) {
+				conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
+			} else if (strcmp(optarg, "top") == 0) {
+				conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+			} else if (strcmp(optarg, "overlay") == 0) {
+				conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
+			} else {
+				fprintf(stderr, "Invalid layer: %s\n"
+						"Usage: --layer overlay|top|bottom|background\n",
+						optarg);
+				return EXIT_FAILURE;
 			}
 			break;
 		case 'f': // Font
-			if (type) {
-				pango_font_description_free(type->font_description);
-				type->font_description = pango_font_description_from_string(optarg);
-			}
+			pango_font_description_free(conf->font_description);
+			conf->font_description = pango_font_description_from_string(optarg);
 			break;
 		case 'l': // Detailed Message
 			if (swaynag) {
@@ -270,10 +291,8 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			}
 			break;
 		case 'o': // Output
-			if (type) {
-				free(type->output);
-				type->output = strdup(optarg);
-			}
+			free(conf->output);
+			conf->output = strdup(optarg);
 			break;
 		case 's': // Dismiss Button Text
 			if (swaynag) {
@@ -282,92 +301,70 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 				button_close->text = strdup(optarg);
 			}
 			break;
-		case 't': // Type
-			if (swaynag) {
-				swaynag->type = swaynag_type_get(types, optarg);
-				if (!swaynag->type) {
-					fprintf(stderr, "Unknown type %s\n", optarg);
-					return EXIT_FAILURE;
-				}
-			}
+		case 't':
+			// TODO Have removed 'type' ; replace with timeout
 			break;
 		case 'v': // Version
 			// TODO
 			return -1;
 		case TO_COLOR_BACKGROUND: // Background color
-			if (type && !parse_color(optarg, &type->background)) {
+			if (!parse_color(optarg, &conf->background)) {
 				fprintf(stderr, "Invalid background color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_BORDER: // Border color
-			if (type && !parse_color(optarg, &type->border)) {
+			if (!parse_color(optarg, &conf->border)) {
 				fprintf(stderr, "Invalid border color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_BORDER_BOTTOM: // Bottom border color
-			if (type && !parse_color(optarg, &type->border_bottom)) {
+			if (!parse_color(optarg, &conf->border_bottom)) {
 				fprintf(stderr, "Invalid border bottom color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_BUTTON:  // Button background color
-			if (type && !parse_color(optarg, &type->button_background)) {
+			if (!parse_color(optarg, &conf->button_background)) {
 				fprintf(stderr, "Invalid button background color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_DETAILS:  // Details background color
-			if (type && !parse_color(optarg, &type->details_background)) {
+			if (!parse_color(optarg, &conf->details_background)) {
 				fprintf(stderr, "Invalid details background color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_TEXT:  // Text color
-			if (type && !parse_color(optarg, &type->text)) {
+			if (!parse_color(optarg, &conf->text)) {
 				fprintf(stderr, "Invalid text color: %s", optarg);
 			}
 			break;
 		case TO_COLOR_BUTTON_TEXT:  // Button text color
-			if (type && !parse_color(optarg, &type->button_text)) {
+			if (!parse_color(optarg, &conf->button_text)) {
 				fprintf(stderr, "Invalid button text color: %s", optarg);
 			}
 			break;
 		case TO_THICK_BAR_BORDER:  // Bottom border thickness
-			if (type) {
-				type->bar_border_thickness = strtol(optarg, NULL, 0);
-			}
+			conf->bar_border_thickness = strtol(optarg, NULL, 0);
 			break;
 		case TO_PADDING_MESSAGE:  // Message padding
-			if (type) {
-				type->message_padding = strtol(optarg, NULL, 0);
-			}
+			conf->message_padding = strtol(optarg, NULL, 0);
 			break;
 		case TO_THICK_DET_BORDER:  // Details border thickness
-			if (type) {
-				type->details_border_thickness = strtol(optarg, NULL, 0);
-			}
+			conf->details_border_thickness = strtol(optarg, NULL, 0);
 			break;
 		case TO_THICK_BTN_BORDER:  // Button border thickness
-			if (type) {
-				type->button_border_thickness = strtol(optarg, NULL, 0);
-			}
+			conf->button_border_thickness = strtol(optarg, NULL, 0);
 			break;
 		case TO_GAP_BTN: // Gap between buttons
-			if (type) {
-				type->button_gap = strtol(optarg, NULL, 0);
-			}
+			conf->button_gap = strtol(optarg, NULL, 0);
 			break;
 		case TO_GAP_BTN_DISMISS:  // Gap between dismiss button
-			if (type) {
-				type->button_gap_close = strtol(optarg, NULL, 0);
-			}
+			conf->button_gap_close = strtol(optarg, NULL, 0);
 			break;
 		case TO_MARGIN_BTN_RIGHT:  // Margin on the right side of button area
-			if (type) {
-				type->button_margin_right = strtol(optarg, NULL, 0);
-			}
+			conf->button_margin_right = strtol(optarg, NULL, 0);
 			break;
 		case TO_PADDING_BTN:  // Padding for the button text
-			if (type) {
-				type->button_padding = strtol(optarg, NULL, 0);
-			}
+			conf->button_padding = strtol(optarg, NULL, 0);
 			break;
 		default: // Help or unknown flag
 			fprintf(c == 'h' ? stdout : stderr, "%s", usage);
@@ -389,9 +386,9 @@ void sway_terminate(int code) {
 
 int main(int argc, char **argv) {
 	int status = EXIT_SUCCESS;
-
-	list_t *types = create_list();
-	swaynag_types_add_default(types);
+	struct conf conf = { 0 };
+	conf_init(&conf);
+	swaynag.conf = &conf;
 
 	swaynag.buttons = create_list();
 	wl_list_init(&swaynag.outputs);
@@ -406,12 +403,8 @@ int main(int argc, char **argv) {
 
 	bool debug = false;
 	if (argc > 1) {
-		struct swaynag_type *type_args = swaynag_type_new("<args>");
-		list_add(types, type_args);
-
-		status = swaynag_parse_options(argc, argv, &swaynag, types,
-				type_args, NULL, &debug);
-		if (status != 0) {
+		status = swaynag_parse_options(argc, argv, &swaynag, &conf, &debug);
+		if (status) {
 			goto cleanup;
 		}
 	}
@@ -423,20 +416,6 @@ int main(int argc, char **argv) {
 		goto cleanup;
 	}
 
-	if (!swaynag.type) {
-		swaynag.type = swaynag_type_get(types, "error");
-	}
-
-	// Construct a new type with the defaults as the base, the general config
-	// on top of that, followed by the type config, and finally any command
-	// line arguments
-	struct swaynag_type *type = swaynag_type_new(swaynag.type->name);
-	swaynag_type_merge(type, swaynag_type_get(types, "<defaults>"));
-	swaynag_type_merge(type, swaynag_type_get(types, "<config>"));
-	swaynag_type_merge(type, swaynag.type);
-	swaynag_type_merge(type, swaynag_type_get(types, "<args>"));
-	swaynag.type = type;
-
 	if (swaynag.details.message) {
 		swaynag.details.button_details = calloc(1, sizeof(struct swaynag_button));
 		swaynag.details.button_details->text = strdup(swaynag.details.details_text);
@@ -444,11 +423,11 @@ int main(int argc, char **argv) {
 		list_add(swaynag.buttons, swaynag.details.button_details);
 	}
 
-	sway_log(SWAY_DEBUG, "Output: %s", swaynag.type->output);
-	sway_log(SWAY_DEBUG, "Anchors: %" PRIu32, swaynag.type->anchors);
-	sway_log(SWAY_DEBUG, "Type: %s", swaynag.type->name);
+	sway_log(SWAY_DEBUG, "Output: %s", swaynag.conf->output);
+	sway_log(SWAY_DEBUG, "Anchors: %" PRIu32, swaynag.conf->anchors);
+	sway_log(SWAY_DEBUG, "Type: %s", swaynag.conf->name);
 	sway_log(SWAY_DEBUG, "Message: %s", swaynag.message);
-	char *font = pango_font_description_to_string(swaynag.type->font_description);
+	char *font = pango_font_description_to_string(swaynag.conf->font_description);
 	sway_log(SWAY_DEBUG, "Font: %s", font);
 	free(font);
 	sway_log(SWAY_DEBUG, "Buttons");
@@ -469,7 +448,6 @@ int main(int argc, char **argv) {
 	swaynag_run(&swaynag);
 
 cleanup:
-	swaynag_types_free(types);
 	swaynag_destroy(&swaynag);
 	return status;
 }
