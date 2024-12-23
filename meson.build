@@ -24,9 +24,9 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 wayland_protos = dependency('wayland-protocols', version: '>=1.24')
 wayland_scanner_dep = dependency('wayland-scanner', native: true)
+wlroots = dependency('wlroots-0.18')
 
 sources = files(
-  'log.c',
   'labnag.c',
   'pool-buffer.c',
   'render.c',
@@ -71,6 +71,7 @@ executable(
     glib,
     wayland_client,
     wayland_cursor,
+    wlroots,
   ],
 )
 

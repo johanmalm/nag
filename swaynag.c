@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include "log.h"
+#include <wlr/util/log.h>
 #include "render.h"
 #include "swaynag.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
@@ -20,10 +20,10 @@ static bool terminal_execute(char *terminal, char *command) {
 	char fname[] = "/tmp/swaynagXXXXXX";
 	FILE *tmp= fdopen(mkstemp(fname), "w");
 	if (!tmp) {
-		sway_log(SWAY_ERROR, "Failed to create temp script");
+		wlr_log(WLR_ERROR, "Failed to create temp script");
 		return false;
 	}
-	sway_log(SWAY_DEBUG, "Created temp script: %s", fname);
+	wlr_log(WLR_DEBUG, "Created temp script: %s", fname);
 	fprintf(tmp, "#!/bin/sh\nrm %s\n%s", fname, command);
 	fclose(tmp);
 	chmod(fname, S_IRUSR | S_IWUSR | S_IXUSR);
@@ -35,14 +35,14 @@ static bool terminal_execute(char *terminal, char *command) {
 	}
 	snprintf(cmd, cmd_size, "%s -e %s", terminal, fname);
 	execlp("sh", "sh", "-c", cmd, NULL);
-	sway_log_errno(SWAY_ERROR, "Failed to run command, execlp() returned.");
+	wlr_log_errno(WLR_ERROR, "Failed to run command, execlp() returned.");
 	free(cmd);
 	return false;
 }
 
 static void swaynag_button_execute(struct swaynag *swaynag,
 		struct swaynag_button *button) {
-	sway_log(SWAY_DEBUG, "Executing [%s]: %s", button->text, button->action);
+	wlr_log(WLR_DEBUG, "Executing [%s]: %s", button->text, button->action);
 	if (button->type == SWAYNAG_ACTION_DISMISS) {
 		swaynag->run_display = false;
 	} else if (button->type == SWAYNAG_ACTION_EXPAND) {
@@ -51,30 +51,30 @@ static void swaynag_button_execute(struct swaynag *swaynag,
 	} else {
 		pid_t pid = fork();
 		if (pid < 0) {
-			sway_log_errno(SWAY_DEBUG, "Failed to fork");
+			wlr_log_errno(WLR_DEBUG, "Failed to fork");
 			return;
 		} else if (pid == 0) {
 			// Child process. Will be used to prevent zombie processes
 			pid = fork();
 			if (pid < 0) {
-				sway_log_errno(SWAY_DEBUG, "Failed to fork");
+				wlr_log_errno(WLR_DEBUG, "Failed to fork");
 				return;
 			} else if (pid == 0) {
 				// Child of the child. Will be reparented to the init process
 				char *terminal = getenv("TERMINAL");
 				if (button->terminal && terminal && *terminal) {
-					sway_log(SWAY_DEBUG, "Found $TERMINAL: %s", terminal);
+					wlr_log(WLR_DEBUG, "Found $TERMINAL: %s", terminal);
 					if (!terminal_execute(terminal, button->action)) {
 						swaynag_destroy(swaynag);
 						_exit(EXIT_FAILURE);
 					}
 				} else {
 					if (button->terminal) {
-						sway_log(SWAY_DEBUG,
+						wlr_log(WLR_DEBUG,
 								"$TERMINAL not found. Running directly");
 					}
 					execlp("sh", "sh", "-c", button->action, NULL);
-					sway_log_errno(SWAY_DEBUG, "execlp failed");
+					wlr_log_errno(WLR_DEBUG, "execlp failed");
 					_exit(EXIT_FAILURE);
 				}
 			}
@@ -86,7 +86,7 @@ static void swaynag_button_execute(struct swaynag *swaynag,
 		}
 
 		if (waitpid(pid, NULL, 0) < 0) {
-			sway_log_errno(SWAY_DEBUG, "waitpid failed");
+			wlr_log_errno(WLR_DEBUG, "waitpid failed");
 		}
 	}
 }
@@ -118,7 +118,7 @@ static void surface_enter(void *data, struct wl_surface *surface,
 	struct swaynag_output *swaynag_output;
 	wl_list_for_each(swaynag_output, &swaynag->outputs, link) {
 		if (swaynag_output->wl_output == output) {
-			sway_log(SWAY_DEBUG, "Surface enter on output %s",
+			wlr_log(WLR_DEBUG, "Surface enter on output %s",
 					swaynag_output->name);
 			swaynag->output = swaynag_output;
 			swaynag->scale = swaynag->output->scale;
@@ -153,12 +153,12 @@ static void update_cursor(struct swaynag_seat *seat) {
 	pointer->cursor_theme = wl_cursor_theme_load(
 		cursor_theme, cursor_size * swaynag->scale, swaynag->shm);
 	if (!pointer->cursor_theme) {
-		sway_log(SWAY_ERROR, "Failed to load cursor theme");
+		wlr_log(WLR_ERROR, "Failed to load cursor theme");
 		return;
 	}
 	struct wl_cursor *cursor = wl_cursor_theme_get_cursor(pointer->cursor_theme, "default");
 	if (!cursor) {
-		sway_log(SWAY_ERROR, "Failed to get default cursor from theme");
+		wlr_log(WLR_ERROR, "Failed to get default cursor from theme");
 		return;
 	}
 	pointer->cursor_image = cursor->images[0];
@@ -340,7 +340,7 @@ static void output_name(void *data, struct wl_output *output,
 	const char *outname = swaynag_output->swaynag->conf->output;
 	if (!swaynag_output->swaynag->output && outname &&
 			strcmp(outname, name) == 0) {
-		sway_log(SWAY_DEBUG, "Using output %s", name);
+		wlr_log(WLR_DEBUG, "Using output %s", name);
 		swaynag_output->swaynag->output = swaynag_output;
 	}
 }
@@ -451,9 +451,10 @@ void swaynag_setup_cursors(struct swaynag *swaynag) {
 void swaynag_setup(struct swaynag *swaynag) {
 	swaynag->display = wl_display_connect(NULL);
 	if (!swaynag->display) {
-		sway_abort("Unable to connect to the compositor. "
+		wlr_log(WLR_ERROR, "Unable to connect to the compositor. "
 				"If your compositor is running, check or set the "
 				"WAYLAND_DISPLAY environment variable.");
+		exit(EXIT_FAILURE);
 	}
 
 	swaynag->scale = 1;
@@ -461,20 +462,21 @@ void swaynag_setup(struct swaynag *swaynag) {
 	struct wl_registry *registry = wl_display_get_registry(swaynag->display);
 	wl_registry_add_listener(registry, &registry_listener, swaynag);
 	if (wl_display_roundtrip(swaynag->display) < 0) {
-		sway_abort("failed to register with the wayland display");
+		wlr_log(WLR_ERROR, "failed to register with the wayland display");
+		exit(EXIT_FAILURE);
 	}
 
 	assert(swaynag->compositor && swaynag->layer_shell && swaynag->shm);
 
 	// Second roundtrip to get wl_output properties
 	if (wl_display_roundtrip(swaynag->display) < 0) {
-		sway_log(SWAY_ERROR, "Error during outputs init.");
+		wlr_log(WLR_ERROR, "Error during outputs init.");
 		swaynag_destroy(swaynag);
 		exit(EXIT_FAILURE);
 	}
 
 	if (!swaynag->output && swaynag->conf->output) {
-		sway_log(SWAY_ERROR, "Output '%s' not found", swaynag->conf->output);
+		wlr_log(WLR_ERROR, "Output '%s' not found", swaynag->conf->output);
 		swaynag_destroy(swaynag);
 		exit(EXIT_FAILURE);
 	}

@@ -2,7 +2,7 @@
 #include <glib.h>
 #include <stdint.h>
 #include <pango/pangocairo.h>
-#include "log.h"
+#include <wlr/util/log.h>
 #include "pool-buffer.h"
 #include "swaynag.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
@@ -20,7 +20,7 @@ static PangoLayout *get_pango_layout(cairo_t *cairo, const PangoFontDescription 
 			pango_layout_set_text(layout, buf, -1);
 			free(buf);
 		} else {
-			sway_log(SWAY_ERROR, "pango_parse_markup '%s' -> error %s", text,
+			wlr_log(WLR_ERROR, "pango_parse_markup '%s' -> error %s", text,
 					error->message);
 			g_error_free(error);
 			markup = false; // fallback to plain text
@@ -356,7 +356,7 @@ void render_frame(struct swaynag *swaynag) {
 				swaynag->width * swaynag->scale,
 				swaynag->height * swaynag->scale);
 		if (!swaynag->current_buffer) {
-			sway_log(SWAY_DEBUG, "Failed to get buffer. Skipping frame.");
+			wlr_log(WLR_DEBUG, "Failed to get buffer. Skipping frame.");
 			goto cleanup;
 		}
 

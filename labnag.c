@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include "log.h"
+#include <wlr/util/log.h>
 #include "swaynag.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
@@ -409,10 +409,10 @@ int main(int argc, char **argv) {
 			goto cleanup;
 		}
 	}
-	sway_log_init(debug ? SWAY_DEBUG : SWAY_ERROR, NULL);
+	wlr_log_init(debug ? WLR_DEBUG : WLR_ERROR, NULL);
 
 	if (!swaynag.message) {
-		sway_log(SWAY_ERROR, "No message passed. Please provide --message/-m");
+		wlr_log(WLR_ERROR, "No message passed. Please provide --message/-m");
 		status = EXIT_FAILURE;
 		goto cleanup;
 	}
@@ -424,17 +424,17 @@ int main(int argc, char **argv) {
 		wl_list_insert(swaynag.buttons.prev, &swaynag.details.button_details->link);
 	}
 
-	sway_log(SWAY_DEBUG, "Output: %s", swaynag.conf->output);
-	sway_log(SWAY_DEBUG, "Anchors: %" PRIu32, swaynag.conf->anchors);
-	sway_log(SWAY_DEBUG, "Message: %s", swaynag.message);
+	wlr_log(WLR_DEBUG, "Output: %s", swaynag.conf->output);
+	wlr_log(WLR_DEBUG, "Anchors: %" PRIu32, swaynag.conf->anchors);
+	wlr_log(WLR_DEBUG, "Message: %s", swaynag.message);
 	char *font = pango_font_description_to_string(swaynag.conf->font_description);
-	sway_log(SWAY_DEBUG, "Font: %s", font);
+	wlr_log(WLR_DEBUG, "Font: %s", font);
 	free(font);
-	sway_log(SWAY_DEBUG, "Buttons");
+	wlr_log(WLR_DEBUG, "Buttons");
 
 	struct swaynag_button *button;
 	wl_list_for_each(button, &swaynag.buttons, link) {
-		sway_log(SWAY_DEBUG, "\t[%s] `%s`", button->text, button->action);
+		wlr_log(WLR_DEBUG, "\t[%s] `%s`", button->text, button->action);
 	}
 
 	signal(SIGTERM, sig_handler);
