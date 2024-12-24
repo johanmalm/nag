@@ -66,6 +66,9 @@ _labnag_ [options...]
 *-s, --dismiss-button* <text>
 	Sets the text for the dismiss nagbar button. The default is _X_.
 
+*-t, --timeout*
+	Set duration to close dialog. Default is 5 seconds.
+
 *-v, --version*
 	Show the version number and quit.
 

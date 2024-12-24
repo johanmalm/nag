@@ -132,6 +132,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		{"message", required_argument, NULL, 'm'},
 		{"output", required_argument, NULL, 'o'},
 		{"dismiss-button", required_argument, NULL, 's'},
+		{"timeout", no_argument, NULL, 't'},
 		{"version", no_argument, NULL, 'v'},
 
 		{"background", required_argument, NULL, TO_COLOR_BACKGROUND},
@@ -177,6 +178,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		"  -m, --message <msg>             Set the message text.\n"
 		"  -o, --output <output>           Set the output to use.\n"
 		"  -s, --dismiss-button <text>     Set the dismiss button text.\n"
+		"  -t, --timeout <seconds>         Set duration to close dialog.\n"
 		"  -v, --version                   Show the version number and quit.\n"
 		"\n"
 		"The following appearance options can also be given:\n"
@@ -303,7 +305,7 @@ int swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			}
 			break;
 		case 't':
-			// TODO Have removed 'type' ; replace with timeout
+			swaynag->details.close_timeout = atoi(optarg);
 			break;
 		case 'v': // Version
 			// TODO
@@ -401,6 +403,9 @@ int main(int argc, char **argv) {
 	wl_list_insert(swaynag.buttons.prev, &button_close->link);
 
 	swaynag.details.details_text = strdup("Toggle details");
+	swaynag.details.close_timeout = 5;
+	swaynag.details.close_timeout_cancel = true;
+	swaynag.details.use_exclusive_zone = false;
 
 	bool debug = false;
 	if (argc > 1) {
@@ -440,11 +445,6 @@ int main(int argc, char **argv) {
 	signal(SIGTERM, sig_handler);
 
 	swaynag_setup(&swaynag);
-
-	/* FIXME: use proper config parsing */
-	swaynag.details.close_timeout = 5;
-	swaynag.details.close_timeout_cancel = true;
-	swaynag.details.use_exclusive_zone = false;
 
 	swaynag_run(&swaynag);
 
