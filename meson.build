@@ -29,8 +29,6 @@ wlroots = dependency('wlroots-0.18')
 sources = files(
   'labnag.c',
   'pool-buffer.c',
-  'render.c',
-  'swaynag.c',
 )
 
 wl_protocol_dir = wayland_protos.get_variable('pkgdatadir')
