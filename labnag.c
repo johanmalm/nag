@@ -606,6 +606,8 @@ swaynag_destroy(struct swaynag *swaynag)
 	free(swaynag->details.button_up.text);
 	free(swaynag->details.button_down.text);
 
+	pango_font_description_free(swaynag->conf->font_description);
+
 	if (swaynag->layer_surface) {
 		zwlr_layer_surface_v1_destroy(swaynag->layer_surface);
 	}
@@ -643,6 +645,7 @@ swaynag_destroy(struct swaynag *swaynag)
 	if (swaynag->display) {
 		wl_display_disconnect(swaynag->display);
 	}
+	pango_cairo_font_map_set_default(NULL);
 }
 
 static void
