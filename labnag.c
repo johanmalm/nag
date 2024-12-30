@@ -1344,6 +1344,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 		"  -o, --output <output>           Set the output to use.\n"
 		"  -s, --dismiss-button <text>     Set the dismiss button text.\n"
 		"  -t, --timeout <seconds>         Set duration to close dialog.\n"
+		"  -x, --exclusive-zone            Use exclusive zone.\n"
 		"  -v, --version                   Show the version number and quit.\n"
 		"\n"
 		"The following appearance options can also be given:\n"
@@ -1365,7 +1366,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 
 	optind = 1;
 	while (1) {
-		int c = getopt_long(argc, argv, "b:B:z:Z:c:de:y:f:hlL:m:o:s:t:v", opts, NULL);
+		int c = getopt_long(argc, argv, "b:B:z:Z:c:de:y:f:hlL:m:o:s:t:vx", opts, NULL);
 		if (c == -1) {
 			break;
 		}
@@ -1471,6 +1472,9 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			break;
 		case 't':
 			swaynag->details.close_timeout = atoi(optarg);
+			break;
+		case 'x':
+			swaynag->details.use_exclusive_zone = true;
 			break;
 		case 'v': // Version
 			// TODO

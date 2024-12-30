@@ -69,6 +69,9 @@ _labnag_ [options...]
 *-t, --timeout*
 	Set duration to close dialog. Default is 5 seconds.
 
+*-x, --exclusive-zone*
+	Use exclusive zone. Default is false.
+
 *-v, --version*
 	Show the version number and quit.
 
