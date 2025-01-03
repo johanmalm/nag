@@ -22,6 +22,8 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #define SWAYNAG_MAX_HEIGHT 500
+#define LAB_EXIT_FAILURE 255
+#define LAB_EXIT_SUCCESS 0
 
 struct conf {
 	PangoFontDescription *font_description;
@@ -146,6 +148,8 @@ struct swaynag {
 };
 
 static struct swaynag swaynag;
+
+static int exit_status = LAB_EXIT_FAILURE;
 
 static PangoLayout *
 get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
@@ -676,7 +680,7 @@ swaynag_button_execute(struct swaynag *swaynag,
 					wlr_log(WLR_DEBUG, "Found $TERMINAL: %s", terminal);
 					if (!terminal_execute(terminal, button->action)) {
 						swaynag_destroy(swaynag);
-						_exit(EXIT_FAILURE);
+						_exit(LAB_EXIT_FAILURE);
 					}
 				} else {
 					if (button->terminal) {
@@ -685,7 +689,7 @@ swaynag_button_execute(struct swaynag *swaynag,
 					}
 					execlp("sh", "sh", "-c", button->action, NULL);
 					wlr_log_errno(WLR_DEBUG, "execlp failed");
-					_exit(EXIT_FAILURE);
+					_exit(LAB_EXIT_FAILURE);
 				}
 			}
 			_exit(EXIT_SUCCESS);
@@ -847,6 +851,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 	double x = seat->pointer.x;
 	double y = seat->pointer.y;
 
+	int index = 0;
 	struct swaynag_button *nagbutton;
 	wl_list_for_each(nagbutton, &swaynag->buttons, link) {
 		if (x >= nagbutton->x
@@ -854,8 +859,10 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 				&& x < nagbutton->x + nagbutton->width
 				&& y < nagbutton->y + nagbutton->height) {
 			swaynag_button_execute(swaynag, nagbutton);
+			exit_status = index;
 			return;
 		}
+		++index;
 	}
 
 	if (swaynag->details.visible &&
@@ -1076,7 +1083,7 @@ swaynag_setup(struct swaynag *swaynag)
 		wlr_log(WLR_ERROR, "Unable to connect to the compositor. "
 				"If your compositor is running, check or set the "
 				"WAYLAND_DISPLAY environment variable.");
-		exit(EXIT_FAILURE);
+		exit(LAB_EXIT_FAILURE);
 	}
 
 	swaynag->scale = 1;
@@ -1085,7 +1092,7 @@ swaynag_setup(struct swaynag *swaynag)
 	wl_registry_add_listener(registry, &registry_listener, swaynag);
 	if (wl_display_roundtrip(swaynag->display) < 0) {
 		wlr_log(WLR_ERROR, "failed to register with the wayland display");
-		exit(EXIT_FAILURE);
+		exit(LAB_EXIT_FAILURE);
 	}
 
 	assert(swaynag->compositor && swaynag->layer_shell && swaynag->shm);
@@ -1094,13 +1101,13 @@ swaynag_setup(struct swaynag *swaynag)
 	if (wl_display_roundtrip(swaynag->display) < 0) {
 		wlr_log(WLR_ERROR, "Error during outputs init.");
 		swaynag_destroy(swaynag);
-		exit(EXIT_FAILURE);
+		exit(LAB_EXIT_FAILURE);
 	}
 
 	if (!swaynag->output && swaynag->conf->output) {
 		wlr_log(WLR_ERROR, "Output '%s' not found", swaynag->conf->output);
 		swaynag_destroy(swaynag);
-		exit(EXIT_FAILURE);
+		exit(LAB_EXIT_FAILURE);
 	}
 
 	if (!swaynag->cursor_shape_manager) {
@@ -1378,12 +1385,12 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			if (swaynag) {
 				if (optind >= argc) {
 					fprintf(stderr, "Missing action for button %s\n", optarg);
-					return EXIT_FAILURE;
+					return LAB_EXIT_FAILURE;
 				}
 				struct swaynag_button *button = calloc(1, sizeof(*button));
 				if (!button) {
 					perror("calloc");
-					return EXIT_FAILURE;
+					return LAB_EXIT_FAILURE;
 				}
 				button->text = strdup(optarg);
 				button->type = SWAYNAG_ACTION_COMMAND;
@@ -1410,7 +1417,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 					| ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 			} else {
 				fprintf(stderr, "Invalid edge: %s\n", optarg);
-				return EXIT_FAILURE;
+				return LAB_EXIT_FAILURE;
 			}
 			break;
 		case 'y': // Layer
@@ -1426,7 +1433,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 				fprintf(stderr, "Invalid layer: %s\n"
 						"Usage: --layer overlay|top|bottom|background\n",
 						optarg);
-				return EXIT_FAILURE;
+				return LAB_EXIT_FAILURE;
 			}
 			break;
 		case 'f': // Font
@@ -1438,7 +1445,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 				free(swaynag->details.message);
 				swaynag->details.message = read_and_trim_stdin();
 				if (!swaynag->details.message) {
-					return EXIT_FAILURE;
+					return LAB_EXIT_FAILURE;
 				}
 				swaynag->details.button_up.text = strdup("▲");
 				swaynag->details.button_down.text = strdup("▼");
@@ -1478,7 +1485,7 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			break;
 		case 'v': // Version
 			// TODO
-			return -1;
+			return LAB_EXIT_FAILURE;
 		case TO_COLOR_BACKGROUND: // Background color
 			if (!parse_color(optarg, &conf->background)) {
 				fprintf(stderr, "Invalid background color: %s", optarg);
@@ -1540,18 +1547,18 @@ swaynag_parse_options(int argc, char **argv, struct swaynag *swaynag,
 			break;
 		default: // Help or unknown flag
 			fprintf(c == 'h' ? stdout : stderr, "%s", usage);
-			return -1;
+			return LAB_EXIT_FAILURE;
 		}
 	}
 
-	return 0;
+	return LAB_EXIT_SUCCESS;
 }
 
 void
 sig_handler(int signal)
 {
 	swaynag_destroy(&swaynag);
-	exit(EXIT_FAILURE);
+	exit(LAB_EXIT_FAILURE);
 }
 
 void
@@ -1564,7 +1571,6 @@ sway_terminate(int code)
 int
 main(int argc, char **argv)
 {
-	int status = EXIT_SUCCESS;
 	struct conf conf = { 0 };
 	conf_init(&conf);
 	swaynag.conf = &conf;
@@ -1585,8 +1591,8 @@ main(int argc, char **argv)
 
 	bool debug = false;
 	if (argc > 1) {
-		status = swaynag_parse_options(argc, argv, &swaynag, &conf, &debug);
-		if (status) {
+		exit_status = swaynag_parse_options(argc, argv, &swaynag, &conf, &debug);
+		if (exit_status == LAB_EXIT_FAILURE) {
 			goto cleanup;
 		}
 	}
@@ -1594,7 +1600,7 @@ main(int argc, char **argv)
 
 	if (!swaynag.message) {
 		wlr_log(WLR_ERROR, "No message passed. Please provide --message/-m");
-		status = EXIT_FAILURE;
+		exit_status = LAB_EXIT_FAILURE;
 		goto cleanup;
 	}
 
@@ -1626,5 +1632,5 @@ main(int argc, char **argv)
 
 cleanup:
 	swaynag_destroy(&swaynag);
-	return status;
+	return exit_status;
 }
