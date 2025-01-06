@@ -77,7 +77,7 @@ struct seat {
 	struct wl_list link;
 };
 
-struct nag_output {
+struct output {
 	char *name;
 	struct wl_output *wl_output;
 	uint32_t wl_name;
@@ -129,7 +129,7 @@ struct nag {
 	struct wl_shm *shm;
 	struct wl_list outputs;  // nag_output::link
 	struct wl_list seats;  // seat::link
-	struct nag_output *output;
+	struct output *output;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zwlr_layer_surface_v1 *layer_surface;
 	struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
@@ -629,7 +629,7 @@ nag_destroy(struct nag *nag)
 	destroy_buffer(&nag->buffers[1]);
 
 	if (nag->outputs.prev || nag->outputs.next) {
-		struct nag_output *output, *temp;
+		struct output *output, *temp;
 		wl_list_for_each_safe(output, temp, &nag->outputs, link) {
 			wl_output_destroy(output->wl_output);
 			free(output->name);
@@ -732,7 +732,7 @@ static void
 surface_enter(void *data, struct wl_surface *surface, struct wl_output *output)
 {
 	struct nag *nag = data;
-	struct nag_output *nag_output;
+	struct output *nag_output;
 	wl_list_for_each(nag_output, &nag->outputs, link) {
 		if (nag_output->wl_output == output) {
 			wlr_log(WLR_DEBUG, "Surface enter on output %s",
@@ -954,7 +954,7 @@ static const struct wl_seat_listener seat_listener = {
 static void
 output_scale(void *data, struct wl_output *output, int32_t factor)
 {
-	struct nag_output *nag_output = data;
+	struct output *nag_output = data;
 	nag_output->scale = factor;
 	if (nag_output->nag->output == nag_output) {
 		nag_output->nag->scale = nag_output->scale;
@@ -968,7 +968,7 @@ output_scale(void *data, struct wl_output *output, int32_t factor)
 static void
 output_name(void *data, struct wl_output *output, const char *name)
 {
-	struct nag_output *nag_output = data;
+	struct output *nag_output = data;
 	nag_output->name = strdup(name);
 
 	const char *outname = nag_output->nag->conf->output;
@@ -1016,8 +1016,8 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		nag->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 	} else if (strcmp(interface, wl_output_interface.name) == 0) {
 		if (!nag->output) {
-			struct nag_output *output =
-				calloc(1, sizeof(struct nag_output));
+			struct output *output =
+				calloc(1, sizeof(struct output));
 			if (!output) {
 				perror("calloc");
 				return;
