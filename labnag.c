@@ -53,13 +53,13 @@ struct conf {
 
 struct nag;
 
-enum nag_action_type {
+enum action_type {
 	SWAYNAG_ACTION_DISMISS,
 	SWAYNAG_ACTION_EXPAND,
 	SWAYNAG_ACTION_COMMAND,
 };
 
-struct nag_pointer {
+struct pointer {
 	struct wl_pointer *pointer;
 	uint32_t serial;
 	struct wl_cursor_theme *cursor_theme;
@@ -69,11 +69,11 @@ struct nag_pointer {
 	int y;
 };
 
-struct nag_seat {
+struct seat {
 	struct wl_seat *wl_seat;
 	uint32_t wl_name;
 	struct nag *nag;
-	struct nag_pointer pointer;
+	struct pointer pointer;
 	struct wl_list link;
 };
 
@@ -88,7 +88,7 @@ struct nag_output {
 
 struct nag_button {
 	char *text;
-	enum nag_action_type type;
+	enum action_type type;
 	char *action;
 	int x;
 	int y;
@@ -128,7 +128,7 @@ struct nag {
 	struct wl_seat *seat;
 	struct wl_shm *shm;
 	struct wl_list outputs;  // nag_output::link
-	struct wl_list seats;  // nag_seat::link
+	struct wl_list seats;  // seat::link
 	struct nag_output *output;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zwlr_layer_surface_v1 *layer_surface;
@@ -578,7 +578,7 @@ terminal_execute(char *terminal, char *command)
 }
 
 void
-nag_seat_destroy(struct nag_seat *seat)
+seat_destroy(struct seat *seat)
 {
 	if (seat->pointer.cursor_theme) {
 		wl_cursor_theme_destroy(seat->pointer.cursor_theme);
@@ -620,9 +620,9 @@ nag_destroy(struct nag *nag)
 		wl_surface_destroy(nag->surface);
 	}
 
-	struct nag_seat *seat, *tmpseat;
+	struct seat *seat, *tmpseat;
 	wl_list_for_each_safe(seat, tmpseat, &nag->seats, link) {
-		nag_seat_destroy(seat);
+		seat_destroy(seat);
 	}
 
 	destroy_buffer(&nag->buffers[0]);
@@ -751,9 +751,9 @@ static const struct wl_surface_listener surface_listener = {
 };
 
 static void
-update_cursor(struct nag_seat *seat)
+update_cursor(struct seat *seat)
 {
-	struct nag_pointer *pointer = &seat->pointer;
+	struct pointer *pointer = &seat->pointer;
 	struct nag *nag = seat->nag;
 	if (pointer->cursor_theme) {
 		wl_cursor_theme_destroy(pointer->cursor_theme);
@@ -797,7 +797,7 @@ update_cursor(struct nag_seat *seat)
 void
 update_all_cursors(struct nag *nag)
 {
-	struct nag_seat *seat;
+	struct seat *seat;
 	wl_list_for_each(seat, &nag->seats, link) {
 		if (seat->pointer.pointer) {
 			update_cursor(seat);
@@ -809,9 +809,9 @@ static void
 wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 		struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-	struct nag_seat *seat = data;
+	struct seat *seat = data;
 
-	struct nag_pointer *pointer = &seat->pointer;
+	struct pointer *pointer = &seat->pointer;
 	pointer->x = wl_fixed_to_int(surface_x);
 	pointer->y = wl_fixed_to_int(surface_y);
 
@@ -832,7 +832,7 @@ static void
 wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x,
 		wl_fixed_t surface_y)
 {
-	struct nag_seat *seat = data;
+	struct seat *seat = data;
 	seat->pointer.x = wl_fixed_to_int(surface_x);
 	seat->pointer.y = wl_fixed_to_int(surface_y);
 }
@@ -841,7 +841,7 @@ static void
 wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time,
 		uint32_t button, uint32_t state)
 {
-	struct nag_seat *seat = data;
+	struct seat *seat = data;
 	struct nag *nag = seat->nag;
 
 	if (state != WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -897,7 +897,7 @@ static void
 wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis,
 		wl_fixed_t value)
 {
-	struct nag_seat *seat = data;
+	struct seat *seat = data;
 	struct nag *nag = seat->nag;
 	if (!nag->details.visible
 			|| seat->pointer.x < nag->details.x
@@ -934,7 +934,7 @@ static const struct wl_pointer_listener pointer_listener = {
 static void
 seat_handle_capabilities(void *data, struct wl_seat *wl_seat, enum wl_seat_capability caps)
 {
-	struct nag_seat *seat = data;
+	struct seat *seat = data;
 	bool cap_pointer = caps & WL_SEAT_CAPABILITY_POINTER;
 	if (cap_pointer && !seat->pointer.pointer) {
 		seat->pointer.pointer = wl_seat_get_pointer(wl_seat);
@@ -997,8 +997,8 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		nag->compositor = wl_registry_bind(registry, name,
 				&wl_compositor_interface, 4);
 	} else if (strcmp(interface, wl_seat_interface.name) == 0) {
-		struct nag_seat *seat =
-			calloc(1, sizeof(struct nag_seat));
+		struct seat *seat =
+			calloc(1, sizeof(struct seat));
 		if (!seat) {
 			perror("calloc");
 			return;
@@ -1048,10 +1048,10 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 		nag->run_display = false;
 	}
 
-	struct nag_seat *seat, *tmpseat;
+	struct seat *seat, *tmpseat;
 	wl_list_for_each_safe(seat, tmpseat, &nag->seats, link) {
 		if (seat->wl_name == name) {
-			nag_seat_destroy(seat);
+			seat_destroy(seat);
 		}
 	}
 }
@@ -1064,10 +1064,10 @@ static const struct wl_registry_listener registry_listener = {
 void
 nag_setup_cursors(struct nag *nag)
 {
-	struct nag_seat *seat;
+	struct seat *seat;
 
 	wl_list_for_each(seat, &nag->seats, link) {
-		struct nag_pointer *p = &seat->pointer;
+		struct pointer *p = &seat->pointer;
 
 		p->cursor_surface =
 			wl_compositor_create_surface(nag->compositor);
