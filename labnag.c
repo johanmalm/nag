@@ -997,8 +997,7 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		nag->compositor = wl_registry_bind(registry, name,
 				&wl_compositor_interface, 4);
 	} else if (strcmp(interface, wl_seat_interface.name) == 0) {
-		struct seat *seat =
-			calloc(1, sizeof(struct seat));
+		struct seat *seat = calloc(1, sizeof(*seat));
 		if (!seat) {
 			perror("calloc");
 			return;
@@ -1016,8 +1015,7 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		nag->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 	} else if (strcmp(interface, wl_output_interface.name) == 0) {
 		if (!nag->output) {
-			struct output *output =
-				calloc(1, sizeof(struct output));
+			struct output *output = calloc(1, sizeof(*output));
 			if (!output) {
 				perror("calloc");
 				return;
@@ -1579,7 +1577,7 @@ main(int argc, char **argv)
 	wl_list_init(&nag.outputs);
 	wl_list_init(&nag.seats);
 
-	struct nag_button *button_close = calloc(1, sizeof(struct nag_button));
+	struct nag_button *button_close = calloc(1, sizeof(*button_close));
 	button_close->text = strdup("X");
 	button_close->type = SWAYNAG_ACTION_DISMISS;
 	wl_list_insert(nag.buttons.prev, &button_close->link);
