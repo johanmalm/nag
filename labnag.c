@@ -99,27 +99,6 @@ struct button {
 	struct wl_list link;
 };
 
-struct nag_details {
-	bool visible;
-	char *message;
-	char *details_text;
-	int close_timeout;
-	bool close_timeout_cancel;
-	bool use_exclusive_zone;
-
-	int x;
-	int y;
-	int width;
-	int height;
-
-	int offset;
-	int visible_lines;
-	int total_lines;
-	struct button *button_details;
-	struct button button_up;
-	struct button button_down;
-};
-
 struct nag {
 	bool run_display;
 
@@ -144,7 +123,27 @@ struct nag {
 	struct conf *conf;
 	char *message;
 	struct wl_list buttons;
-	struct nag_details details;
+
+	struct {
+		bool visible;
+		char *message;
+		char *details_text;
+		int close_timeout;
+		bool close_timeout_cancel;
+		bool use_exclusive_zone;
+
+		int x;
+		int y;
+		int width;
+		int height;
+
+		int offset;
+		int visible_lines;
+		int total_lines;
+		struct button *button_details;
+		struct button button_up;
+		struct button button_down;
+	} details;
 };
 
 static struct nag nag;
