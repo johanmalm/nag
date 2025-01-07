@@ -74,7 +74,7 @@ struct seat {
 	uint32_t wl_name;
 	struct nag *nag;
 	struct pointer pointer;
-	struct wl_list link;
+	struct wl_list link; /* nag.seats */
 };
 
 struct output {
@@ -83,7 +83,7 @@ struct output {
 	uint32_t wl_name;
 	uint32_t scale;
 	struct nag *nag;
-	struct wl_list link;
+	struct wl_list link; /* nag.outputs */
 };
 
 struct nag_button {
@@ -127,8 +127,8 @@ struct nag {
 	struct wl_compositor *compositor;
 	struct wl_seat *seat;
 	struct wl_shm *shm;
-	struct wl_list outputs;  // nag_output::link
-	struct wl_list seats;  // seat::link
+	struct wl_list outputs;
+	struct wl_list seats;
 	struct output *output;
 	struct zwlr_layer_shell_v1 *layer_shell;
 	struct zwlr_layer_surface_v1 *layer_surface;
