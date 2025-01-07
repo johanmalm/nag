@@ -86,7 +86,7 @@ struct output {
 	struct wl_list link; /* nag.outputs */
 };
 
-struct nag_button {
+struct button {
 	char *text;
 	enum action_type type;
 	char *action;
@@ -115,9 +115,9 @@ struct nag_details {
 	int offset;
 	int visible_lines;
 	int total_lines;
-	struct nag_button *button_details;
-	struct nag_button button_up;
-	struct nag_button button_down;
+	struct button *button_details;
+	struct button button_up;
+	struct button button_down;
 };
 
 struct nag {
@@ -267,7 +267,7 @@ render_message(cairo_t *cairo, struct nag *nag)
 
 static void
 render_details_scroll_button(cairo_t *cairo,
-		struct nag *nag, struct nag_button *button)
+		struct nag *nag, struct button *button)
 {
 	int text_width, text_height;
 	get_text_size(cairo, nag->conf->font_description, &text_width, &text_height, NULL,
@@ -412,7 +412,7 @@ render_detailed(cairo_t *cairo, struct nag *nag,
 
 static uint32_t
 render_button(cairo_t *cairo, struct nag *nag,
-		struct nag_button *button, int *x)
+		struct button *button, int *x)
 {
 	int text_width, text_height;
 	get_text_size(cairo, nag->conf->font_description, &text_width, &text_height, NULL,
@@ -467,7 +467,7 @@ render_to_cairo(cairo_t *cairo, struct nag *nag)
 	int x = nag->width - nag->conf->button_margin_right;
 	x -= nag->conf->button_gap_close;
 
-	struct nag_button *button;
+	struct button *button;
 	wl_list_for_each(button, &nag->buttons, link) {
 		h = render_button(cairo, nag, button, &x);
 		max_height = h > max_height ? h : max_height;
@@ -598,7 +598,7 @@ nag_destroy(struct nag *nag)
 
 	free(nag->message);
 
-	struct nag_button *button, *next;
+	struct button *button, *next;
 	wl_list_for_each_safe(button, next, &nag->buttons, link) {
 		wl_list_remove(&button->link);
 		free(button->text);
@@ -653,8 +653,8 @@ nag_destroy(struct nag *nag)
 }
 
 static void
-nag_button_execute(struct nag *nag,
-		struct nag_button *button)
+button_execute(struct nag *nag,
+		struct button *button)
 {
 	wlr_log(WLR_DEBUG, "Executing [%s]: %s", button->text, button->action);
 	if (button->type == SWAYNAG_ACTION_DISMISS) {
@@ -852,13 +852,13 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 	double y = seat->pointer.y;
 
 	int index = 0;
-	struct nag_button *nagbutton;
+	struct button *nagbutton;
 	wl_list_for_each(nagbutton, &nag->buttons, link) {
 		if (x >= nagbutton->x
 				&& y >= nagbutton->y
 				&& x < nagbutton->x + nagbutton->width
 				&& y < nagbutton->y + nagbutton->height) {
-			nag_button_execute(nag, nagbutton);
+			button_execute(nag, nagbutton);
 			exit_status = index;
 			return;
 		}
@@ -867,7 +867,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 
 	if (nag->details.visible &&
 			nag->details.total_lines != nag->details.visible_lines) {
-		struct nag_button button_up = nag->details.button_up;
+		struct button button_up = nag->details.button_up;
 		if (x >= button_up.x
 				&& y >= button_up.y
 				&& x < button_up.x + button_up.width
@@ -878,7 +878,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 			return;
 		}
 
-		struct nag_button button_down = nag->details.button_down;
+		struct button button_down = nag->details.button_down;
 		int bot = nag->details.total_lines;
 		bot -= nag->details.visible_lines;
 		if (x >= button_down.x
@@ -1385,7 +1385,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 					fprintf(stderr, "Missing action for button %s\n", optarg);
 					return LAB_EXIT_FAILURE;
 				}
-				struct nag_button *button = calloc(1, sizeof(*button));
+				struct button *button = calloc(1, sizeof(*button));
 				if (!button) {
 					perror("calloc");
 					return LAB_EXIT_FAILURE;
@@ -1467,7 +1467,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			break;
 		case 's': // Dismiss Button Text
 			if (nag) {
-				struct nag_button *button;
+				struct button *button;
 				wl_list_for_each(button, &nag->buttons, link) {
 					free(button->text);
 					button->text = strdup(optarg);
@@ -1577,7 +1577,7 @@ main(int argc, char **argv)
 	wl_list_init(&nag.outputs);
 	wl_list_init(&nag.seats);
 
-	struct nag_button *button_close = calloc(1, sizeof(*button_close));
+	struct button *button_close = calloc(1, sizeof(*button_close));
 	button_close->text = strdup("X");
 	button_close->type = SWAYNAG_ACTION_DISMISS;
 	wl_list_insert(nag.buttons.prev, &button_close->link);
@@ -1603,7 +1603,7 @@ main(int argc, char **argv)
 	}
 
 	if (nag.details.message) {
-		nag.details.button_details = calloc(1, sizeof(struct nag_button));
+		nag.details.button_details = calloc(1, sizeof(struct button));
 		nag.details.button_details->text = strdup(nag.details.details_text);
 		nag.details.button_details->type = SWAYNAG_ACTION_EXPAND;
 		wl_list_insert(nag.buttons.prev, &nag.details.button_details->link);
@@ -1617,7 +1617,7 @@ main(int argc, char **argv)
 	free(font);
 	wlr_log(WLR_DEBUG, "Buttons");
 
-	struct nag_button *button;
+	struct button *button;
 	wl_list_for_each(button, &nag.buttons, link) {
 		wlr_log(WLR_DEBUG, "\t[%s] `%s`", button->text, button->action);
 	}
