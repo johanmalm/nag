@@ -1,5 +1,11 @@
-#ifndef _SWAY_BUFFERS_H
-#define _SWAY_BUFFERS_H
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copied from https://github.com/swaywm/sway
+ *
+ * Copyright (C) 2016-2017 Drew DeVault
+ */
+#ifndef BUFFERS_H
+#define BUFFERS_H
 #include <cairo.h>
 #include <pango/pangocairo.h>
 #include <stdbool.h>

@@ -1,3 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Based on https://github.com/swaywm/sway/tree/master/swaynag
+ *
+ * Copyright (C) 2016-2017 Drew DeVault
+ * Copyright (C) 2025 Johan Malm
+ */
 #include <assert.h>
 #include <cairo.h>
 #include <ctype.h>
@@ -21,7 +28,7 @@
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
-#define SWAYNAG_MAX_HEIGHT 500
+#define LABNAG_MAX_HEIGHT 500
 #define LAB_EXIT_FAILURE 255
 #define LAB_EXIT_SUCCESS 0
 
@@ -29,9 +36,9 @@ struct conf {
 	PangoFontDescription *font_description;
 	char *output;
 	uint32_t anchors;
-	int32_t layer; // enum zwlr_layer_shell_v1_layer or -1 if unset
+	int32_t layer; /* enum zwlr_layer_shell_v1_layer or -1 if unset */
 
-	// Colors
+	/* Colors */
 	uint32_t button_text;
 	uint32_t button_background;
 	uint32_t details_background;
@@ -40,7 +47,7 @@ struct conf {
 	uint32_t border;
 	uint32_t border_bottom;
 
-	// Sizing
+	/* Sizing */
 	ssize_t bar_border_thickness;
 	ssize_t message_padding;
 	ssize_t details_border_thickness;
@@ -54,9 +61,9 @@ struct conf {
 struct nag;
 
 enum action_type {
-	SWAYNAG_ACTION_DISMISS,
-	SWAYNAG_ACTION_EXPAND,
-	SWAYNAG_ACTION_COMMAND,
+	LABNAG_ACTION_DISMISS,
+	LABNAG_ACTION_EXPAND,
+	LABNAG_ACTION_COMMAND,
 };
 
 struct pointer {
@@ -168,7 +175,7 @@ get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
 			wlr_log(WLR_ERROR, "pango_parse_markup '%s' -> error %s", text,
 					error->message);
 			g_error_free(error);
-			markup = false; // fallback to plain text
+			markup = false; /* fallback to plain text */
 		}
 	}
 	if (!markup) {
@@ -355,8 +362,8 @@ render_detailed(cairo_t *cairo, struct nag *nag,
 	uint32_t ideal_height;
 	do {
 		ideal_height = nag->details.y + text_height + decor + padding * 2;
-		if (ideal_height > SWAYNAG_MAX_HEIGHT) {
-			ideal_height = SWAYNAG_MAX_HEIGHT;
+		if (ideal_height > LABNAG_MAX_HEIGHT) {
+			ideal_height = LABNAG_MAX_HEIGHT;
 
 			if (!show_buttons) {
 				show_buttons = true;
@@ -562,7 +569,7 @@ terminal_execute(char *terminal, char *command)
 	wlr_log(WLR_DEBUG, "Created temp script: %s", fname);
 	fprintf(tmp, "#!/bin/sh\nrm %s\n%s", fname, command);
 	fclose(tmp);
-	chmod(fname, S_IRUSR | S_IWUSR | S_IXUSR);
+	chmod(fname, 0700);
 	size_t cmd_size = strlen(terminal) + strlen(" -e ") + strlen(fname) + 1;
 	char *cmd = malloc(cmd_size);
 	if (!cmd) {
@@ -656,9 +663,9 @@ button_execute(struct nag *nag,
 		struct button *button)
 {
 	wlr_log(WLR_DEBUG, "Executing [%s]: %s", button->text, button->action);
-	if (button->type == SWAYNAG_ACTION_DISMISS) {
+	if (button->type == LABNAG_ACTION_DISMISS) {
 		nag->run_display = false;
-	} else if (button->type == SWAYNAG_ACTION_EXPAND) {
+	} else if (button->type == LABNAG_ACTION_EXPAND) {
 		nag->details.visible = !nag->details.visible;
 		render_frame(nag);
 	} else {
@@ -667,13 +674,13 @@ button_execute(struct nag *nag,
 			wlr_log_errno(WLR_DEBUG, "Failed to fork");
 			return;
 		} else if (pid == 0) {
-			// Child process. Will be used to prevent zombie processes
+			/* Child process. Will be used to prevent zombie processes */
 			pid = fork();
 			if (pid < 0) {
 				wlr_log_errno(WLR_DEBUG, "Failed to fork");
 				return;
 			} else if (pid == 0) {
-				// Child of the child. Will be reparented to the init process
+				/* Child of the child. Will be reparented to the init process */
 				char *terminal = getenv("TERMINAL");
 				if (button->terminal && terminal && *terminal) {
 					wlr_log(WLR_DEBUG, "Found $TERMINAL: %s", terminal);
@@ -1094,7 +1101,7 @@ nag_setup(struct nag *nag)
 
 	assert(nag->compositor && nag->layer_shell && nag->shm);
 
-	// Second roundtrip to get wl_output properties
+	/* Second roundtrip to get wl_output properties */
 	if (wl_display_roundtrip(nag->display) < 0) {
 		wlr_log(WLR_ERROR, "Error during outputs init.");
 		nag_destroy(nag);
@@ -1375,10 +1382,10 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			break;
 		}
 		switch (c) {
-		case 'b': // Button
-		case 'B': // Button (No Terminal)
-		case 'z': // Button (Dismiss)
-		case 'Z': // Button (Dismiss, No Terminal)
+		case 'b': /* Button */
+		case 'B': /* Button (No Terminal) */
+		case 'z': /* Button (Dismiss) */
+		case 'Z': /* Button (Dismiss, No Terminal) */
 			if (nag) {
 				if (optind >= argc) {
 					fprintf(stderr, "Missing action for button %s\n", optarg);
@@ -1390,7 +1397,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 					return LAB_EXIT_FAILURE;
 				}
 				button->text = strdup(optarg);
-				button->type = SWAYNAG_ACTION_COMMAND;
+				button->type = LABNAG_ACTION_COMMAND;
 				button->action = strdup(argv[optind]);
 				button->terminal = c == 'b';
 				button->dismiss = c == 'z' || c == 'Z';
@@ -1398,12 +1405,12 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			}
 			optind++;
 			break;
-		case 'd': // Debug
+		case 'd': /* Debug */
 			if (debug) {
 				*debug = true;
 			}
 			break;
-		case 'e': // Edge
+		case 'e': /* Edge */
 			if (strcmp(optarg, "top") == 0) {
 				conf->anchors = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
 					| ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT
@@ -1417,7 +1424,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 				return LAB_EXIT_FAILURE;
 			}
 			break;
-		case 'y': // Layer
+		case 'y': /* Layer */
 			if (strcmp(optarg, "background") == 0) {
 				conf->layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
 			} else if (strcmp(optarg, "bottom") == 0) {
@@ -1433,11 +1440,11 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 				return LAB_EXIT_FAILURE;
 			}
 			break;
-		case 'f': // Font
+		case 'f': /* Font */
 			pango_font_description_free(conf->font_description);
 			conf->font_description = pango_font_description_from_string(optarg);
 			break;
-		case 'l': // Detailed Message
+		case 'l': /* Detailed Message */
 			if (nag) {
 				free(nag->details.message);
 				nag->details.message = read_and_trim_stdin();
@@ -1448,23 +1455,23 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 				nag->details.button_down.text = strdup("▼");
 			}
 			break;
-		case 'L': // Detailed Button Text
+		case 'L': /* Detailed Button Text */
 			if (nag) {
 				free(nag->details.details_text);
 				nag->details.details_text = strdup(optarg);
 			}
 			break;
-		case 'm': // Message
+		case 'm': /* Message */
 			if (nag) {
 				free(nag->message);
 				nag->message = strdup(optarg);
 			}
 			break;
-		case 'o': // Output
+		case 'o': /* Output */
 			free(conf->output);
 			conf->output = strdup(optarg);
 			break;
-		case 's': // Dismiss Button Text
+		case 's': /* Dismiss Button Text */
 			if (nag) {
 				struct button *button;
 				wl_list_for_each(button, &nag->buttons, link) {
@@ -1480,69 +1487,69 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 		case 'x':
 			nag->details.use_exclusive_zone = true;
 			break;
-		case 'v': // Version
+		case 'v': /* Version */
 			// TODO
 			return LAB_EXIT_FAILURE;
-		case TO_COLOR_BACKGROUND: // Background color
+		case TO_COLOR_BACKGROUND: /* Background color */
 			if (!parse_color(optarg, &conf->background)) {
 				fprintf(stderr, "Invalid background color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_BORDER: // Border color
+		case TO_COLOR_BORDER: /* Border color */
 			if (!parse_color(optarg, &conf->border)) {
 				fprintf(stderr, "Invalid border color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_BORDER_BOTTOM: // Bottom border color
+		case TO_COLOR_BORDER_BOTTOM: /* Bottom border color */
 			if (!parse_color(optarg, &conf->border_bottom)) {
 				fprintf(stderr, "Invalid border bottom color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_BUTTON:  // Button background color
+		case TO_COLOR_BUTTON: /* Button background color */
 			if (!parse_color(optarg, &conf->button_background)) {
 				fprintf(stderr, "Invalid button background color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_DETAILS:  // Details background color
+		case TO_COLOR_DETAILS: /* Details background color */
 			if (!parse_color(optarg, &conf->details_background)) {
 				fprintf(stderr, "Invalid details background color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_TEXT:  // Text color
+		case TO_COLOR_TEXT: /* Text color */
 			if (!parse_color(optarg, &conf->text)) {
 				fprintf(stderr, "Invalid text color: %s", optarg);
 			}
 			break;
-		case TO_COLOR_BUTTON_TEXT:  // Button text color
+		case TO_COLOR_BUTTON_TEXT: /* Button text color */
 			if (!parse_color(optarg, &conf->button_text)) {
 				fprintf(stderr, "Invalid button text color: %s", optarg);
 			}
 			break;
-		case TO_THICK_BAR_BORDER:  // Bottom border thickness
+		case TO_THICK_BAR_BORDER: /* Bottom border thickness */
 			conf->bar_border_thickness = strtol(optarg, NULL, 0);
 			break;
-		case TO_PADDING_MESSAGE:  // Message padding
+		case TO_PADDING_MESSAGE: /* Message padding */
 			conf->message_padding = strtol(optarg, NULL, 0);
 			break;
-		case TO_THICK_DET_BORDER:  // Details border thickness
+		case TO_THICK_DET_BORDER: /* Details border thickness */
 			conf->details_border_thickness = strtol(optarg, NULL, 0);
 			break;
-		case TO_THICK_BTN_BORDER:  // Button border thickness
+		case TO_THICK_BTN_BORDER: /* Button border thickness */
 			conf->button_border_thickness = strtol(optarg, NULL, 0);
 			break;
-		case TO_GAP_BTN: // Gap between buttons
+		case TO_GAP_BTN: /* Gap between buttons */
 			conf->button_gap = strtol(optarg, NULL, 0);
 			break;
-		case TO_GAP_BTN_DISMISS:  // Gap between dismiss button
+		case TO_GAP_BTN_DISMISS: /* Gap between dismiss button */
 			conf->button_gap_close = strtol(optarg, NULL, 0);
 			break;
-		case TO_MARGIN_BTN_RIGHT:  // Margin on the right side of button area
+		case TO_MARGIN_BTN_RIGHT: /* Margin on the right side of button area */
 			conf->button_margin_right = strtol(optarg, NULL, 0);
 			break;
-		case TO_PADDING_BTN:  // Padding for the button text
+		case TO_PADDING_BTN: /* Padding for the button text */
 			conf->button_padding = strtol(optarg, NULL, 0);
 			break;
-		default: // Help or unknown flag
+		default: /* Help or unknown flag */
 			fprintf(c == 'h' ? stdout : stderr, "%s", usage);
 			return LAB_EXIT_FAILURE;
 		}
@@ -1558,13 +1565,6 @@ sig_handler(int signal)
 	exit(LAB_EXIT_FAILURE);
 }
 
-void
-sway_terminate(int code)
-{
-	nag_destroy(&nag);
-	exit(code);
-}
-
 int
 main(int argc, char **argv)
 {
@@ -1578,7 +1578,7 @@ main(int argc, char **argv)
 
 	struct button *button_close = calloc(1, sizeof(*button_close));
 	button_close->text = strdup("X");
-	button_close->type = SWAYNAG_ACTION_DISMISS;
+	button_close->type = LABNAG_ACTION_DISMISS;
 	wl_list_insert(nag.buttons.prev, &button_close->link);
 
 	nag.details.details_text = strdup("Toggle details");
@@ -1604,12 +1604,12 @@ main(int argc, char **argv)
 	if (nag.details.message) {
 		nag.details.button_details = calloc(1, sizeof(struct button));
 		nag.details.button_details->text = strdup(nag.details.details_text);
-		nag.details.button_details->type = SWAYNAG_ACTION_EXPAND;
+		nag.details.button_details->type = LABNAG_ACTION_EXPAND;
 		wl_list_insert(nag.buttons.prev, &nag.details.button_details->link);
 	}
 
 	wlr_log(WLR_DEBUG, "Output: %s", nag.conf->output);
-	wlr_log(WLR_DEBUG, "Anchors: %" PRIu32, nag.conf->anchors);
+	wlr_log(WLR_DEBUG, "Anchors: %lu", (unsigned long)nag.conf->anchors);
 	wlr_log(WLR_DEBUG, "Message: %s", nag.message);
 	char *font = pango_font_description_to_string(nag.conf->font_description);
 	wlr_log(WLR_DEBUG, "Font: %s", font);

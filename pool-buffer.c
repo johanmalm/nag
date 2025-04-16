@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copied from https://github.com/swaywm/sway
+ *
+ * Copyright (C) 2016-2017 Drew DeVault
+ */
 #include <assert.h>
 #include <cairo.h>
 #include <errno.h>
@@ -12,7 +18,8 @@
 #include <wayland-client.h>
 #include "pool-buffer.h"
 
-static int anonymous_shm_open(void) {
+static int anonymous_shm_open(void)
+{
 	int retries = 100;
 
 	do {
@@ -21,7 +28,7 @@ static int anonymous_shm_open(void) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		pid_t pid = getpid();
 		char name[50];
-		snprintf(name, sizeof(name), "/sway-%x-%x",
+		snprintf(name, sizeof(name), "/labnag-%x-%x",
 			(unsigned int)pid, (unsigned int)ts.tv_nsec);
 
 		// shm_open guarantees that O_CLOEXEC is set
@@ -37,7 +44,8 @@ static int anonymous_shm_open(void) {
 	return -1;
 }
 
-static void buffer_release(void *data, struct wl_buffer *wl_buffer) {
+static void buffer_release(void *data, struct wl_buffer *wl_buffer)
+{
 	struct pool_buffer *buffer = data;
 	buffer->busy = false;
 }
@@ -48,7 +56,8 @@ static const struct wl_buffer_listener buffer_listener = {
 
 static struct pool_buffer *create_buffer(struct wl_shm *shm,
 		struct pool_buffer *buf, int32_t width, int32_t height,
-		uint32_t format) {
+		uint32_t format)
+{
 	uint32_t stride = width * 4;
 	size_t size = stride * height;
 
@@ -80,7 +89,8 @@ static struct pool_buffer *create_buffer(struct wl_shm *shm,
 	return buf;
 }
 
-void destroy_buffer(struct pool_buffer *buffer) {
+void destroy_buffer(struct pool_buffer *buffer)
+{
 	if (buffer->buffer) {
 		wl_buffer_destroy(buffer->buffer);
 	}
@@ -100,7 +110,8 @@ void destroy_buffer(struct pool_buffer *buffer) {
 }
 
 struct pool_buffer *get_next_buffer(struct wl_shm *shm,
-		struct pool_buffer pool[static 2], uint32_t width, uint32_t height) {
+		struct pool_buffer pool[static 2], uint32_t width, uint32_t height)
+{
 	struct pool_buffer *buffer = NULL;
 
 	for (size_t i = 0; i < 2; ++i) {
