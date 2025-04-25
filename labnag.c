@@ -555,8 +555,6 @@ cleanup:
 	cairo_destroy(cairo);
 }
 
-static void nop() { /* Intentionally left blank */ }
-
 static bool
 terminal_execute(char *terminal, char *command)
 {
@@ -751,9 +749,15 @@ surface_enter(void *data, struct wl_surface *surface, struct wl_output *output)
 	}
 }
 
+static void
+surface_leave(void *data, struct wl_surface *wl_surface, struct wl_output *output)
+{
+	/* nop */
+}
+
 static const struct wl_surface_listener surface_listener = {
 	.enter = surface_enter,
-	.leave = nop,
+	.leave = surface_leave,
 };
 
 static void
@@ -832,6 +836,13 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
 		pointer->serial = serial;
 		update_cursor(seat);
 	}
+}
+
+static void
+wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
+		uint32_t serial, struct wl_surface *surface)
+{
+	/* nop */
 }
 
 static void
@@ -925,16 +936,43 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32
 	render_frame(nag);
 }
 
+static void
+wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
+{
+	/* nop */
+}
+
+static void
+wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
+		uint32_t axis_source)
+{
+	/* nop */
+}
+
+static void
+wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
+		uint32_t time, uint32_t axis)
+{
+	/* nop */
+}
+
+static void
+wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
+		uint32_t axis, int32_t discrete)
+{
+	/* nop */
+}
+
 static const struct wl_pointer_listener pointer_listener = {
 	.enter = wl_pointer_enter,
-	.leave = nop,
+	.leave = wl_pointer_leave,
 	.motion = wl_pointer_motion,
 	.button = wl_pointer_button,
 	.axis = wl_pointer_axis,
-	.frame = nop,
-	.axis_source = nop,
-	.axis_stop = nop,
-	.axis_discrete = nop,
+	.frame = wl_pointer_frame,
+	.axis_source = wl_pointer_axis_source,
+	.axis_stop = wl_pointer_axis_stop,
+	.axis_discrete = wl_pointer_axis_discrete,
 };
 
 static void
@@ -952,10 +990,38 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat, enum wl_seat_capab
 	}
 }
 
+static void
+seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name)
+{
+	/* nop */
+}
+
 static const struct wl_seat_listener seat_listener = {
 	.capabilities = seat_handle_capabilities,
-	.name = nop,
+	.name = seat_handle_name,
 };
+
+static void
+output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
+		int32_t physical_width, int32_t physical_height,
+		int32_t subpixel, const char *make, const char *model,
+		int32_t transform)
+{
+	/* nop */
+}
+
+static void
+output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
+		int32_t width, int32_t height, int32_t refresh)
+{
+	/* nop */
+}
+
+static void
+output_done(void *data, struct wl_output *output)
+{
+	/* nop */
+}
 
 static void
 output_scale(void *data, struct wl_output *output, int32_t factor)
@@ -985,13 +1051,20 @@ output_name(void *data, struct wl_output *output, const char *name)
 	}
 }
 
+static void
+output_description(void *data, struct wl_output *wl_output,
+		const char *description)
+{
+	/* nop */
+}
+
 static const struct wl_output_listener output_listener = {
-	.geometry = nop,
-	.mode = nop,
-	.done = nop,
+	.geometry = output_geometry,
+	.mode = output_mode,
+	.done = output_done,
 	.scale = output_scale,
 	.name = output_name,
-	.description = nop,
+	.description = output_description,
 };
 
 static void
