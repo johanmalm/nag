@@ -5,6 +5,7 @@
  * Copyright (C) 2016-2017 Drew DeVault
  * Copyright (C) 2025 Johan Malm
  */
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <cairo.h>
 #include <ctype.h>
@@ -499,7 +500,7 @@ render_to_cairo(cairo_t *cairo, struct nag *nag)
 	return max_height;
 }
 
-void
+static void
 render_frame(struct nag *nag)
 {
 	if (!nag->run_display) {
@@ -581,7 +582,7 @@ terminal_execute(char *terminal, char *command)
 	return false;
 }
 
-void
+static void
 seat_destroy(struct seat *seat)
 {
 	if (seat->pointer.cursor_theme) {
@@ -804,7 +805,7 @@ update_cursor(struct seat *seat)
 	wl_surface_commit(pointer->cursor_surface);
 }
 
-void
+static void
 update_all_cursors(struct nag *nag)
 {
 	struct seat *seat;
@@ -1138,7 +1139,7 @@ static const struct wl_registry_listener registry_listener = {
 	.global_remove = handle_global_remove,
 };
 
-void
+static void
 nag_setup_cursors(struct nag *nag)
 {
 	struct seat *seat;
@@ -1152,7 +1153,7 @@ nag_setup_cursors(struct nag *nag)
 	}
 }
 
-void
+static void
 nag_setup(struct nag *nag)
 {
 	nag->display = wl_display_connect(NULL);
@@ -1209,7 +1210,7 @@ nag_setup(struct nag *nag)
 	wl_registry_destroy(registry);
 }
 
-void
+static void
 nag_run(struct nag *nag)
 {
 	nag->run_display = true;
@@ -1344,7 +1345,7 @@ freebuf:
 	return NULL;
 }
 
-int
+static int
 nag_parse_options(int argc, char **argv, struct nag *nag,
 		struct conf *conf, bool *debug)
 {
@@ -1561,7 +1562,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			nag->details.use_exclusive_zone = true;
 			break;
 		case 'v': /* Version */
-			// TODO
+			printf("labnag " LABWC_VERSION "\n");
 			return LAB_EXIT_FAILURE;
 		case TO_COLOR_BACKGROUND: /* Background color */
 			if (!parse_color(optarg, &conf->background)) {
@@ -1631,7 +1632,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	return LAB_EXIT_SUCCESS;
 }
 
-void
+static void
 sig_handler(int signal)
 {
 	nag_destroy(&nag);
