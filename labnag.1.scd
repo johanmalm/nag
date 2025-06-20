@@ -10,29 +10,15 @@ _labnag_ [options...]
 
 # OPTIONS
 
-*-b, --button* <text> <action>
-	Create a button with the text _text_ that executes _action_ when pressed.
-	If the environment variable _TERMINAL_ is set, _action_ will be run inside
-	the terminal. Otherwise, it will fallback to running directly. Multiple
-	buttons can be defined by providing the flag multiple times.
-
-*-B, --button-no-terminal* <text> <action>
-	Create a button with the text _text_ that executes _action_ when pressed.
-	_action_ will be run directly instead of in a terminal. Multiple buttons
-	can be defined by providing the flag multiple times.
-
-*-z, --button-dismiss* <text> <action>
-	Create a button with the text _text_ that executes _action_ when pressed,
-	and dismisses labnag. If the environment variable _TERMINAL_ is set,
-	_action_ will be run inside the terminal. Otherwise, it will fallback to
-	running directly. Multiple buttons can be defined by providing the flag
-	multiple times.
-
-*-Z, --button-dismiss-no-terminal* <text> <action>
-	Create a button with the text _text_ that executes _action_ when pressed,
-	and dismisses labnag. _action_ will be run directly instead of in a
-	terminal. Multiple buttons can be defined by providing the flag multiple
+*-B, --button* <text> <action>
+	Create a button with the text _text_ that executes _action_ when
+	pressed. Multiple buttons can be defined by providing the flag multiple
 	times.
+
+*-Z, --button-dismiss* <text> <action>
+	Create a button with the text _text_ that executes _action_ when
+	pressed, and dismisses labnag. Multiple buttons can be defined by
+	providing the flag multiple times.
 
 *-d, --debug*
 	Enable debugging.

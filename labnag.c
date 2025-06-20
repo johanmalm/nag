@@ -102,7 +102,6 @@ struct button {
 	int y;
 	int width;
 	int height;
-	bool terminal;
 	bool dismiss;
 	struct wl_list link;
 };
@@ -556,32 +555,6 @@ cleanup:
 	cairo_destroy(cairo);
 }
 
-static bool
-terminal_execute(char *terminal, char *command)
-{
-	char fname[] = "/tmp/nagXXXXXX";
-	FILE *tmp = fdopen(mkstemp(fname), "w");
-	if (!tmp) {
-		wlr_log(WLR_ERROR, "Failed to create temp script");
-		return false;
-	}
-	wlr_log(WLR_DEBUG, "Created temp script: %s", fname);
-	fprintf(tmp, "#!/bin/sh\nrm %s\n%s", fname, command);
-	fclose(tmp);
-	chmod(fname, 0700);
-	size_t cmd_size = strlen(terminal) + strlen(" -e ") + strlen(fname) + 1;
-	char *cmd = malloc(cmd_size);
-	if (!cmd) {
-		perror("malloc");
-		return false;
-	}
-	snprintf(cmd, cmd_size, "%s -e %s", terminal, fname);
-	execlp("sh", "sh", "-c", cmd, NULL);
-	wlr_log_errno(WLR_ERROR, "Failed to run command, execlp() returned.");
-	free(cmd);
-	return false;
-}
-
 static void
 seat_destroy(struct seat *seat)
 {
@@ -673,22 +646,9 @@ button_execute(struct nag *nag,
 				return;
 			} else if (pid == 0) {
 				/* Child of the child. Will be reparented to the init process */
-				char *terminal = getenv("TERMINAL");
-				if (button->terminal && terminal && *terminal) {
-					wlr_log(WLR_DEBUG, "Found $TERMINAL: %s", terminal);
-					if (!terminal_execute(terminal, button->action)) {
-						nag_destroy(nag);
-						_exit(LAB_EXIT_FAILURE);
-					}
-				} else {
-					if (button->terminal) {
-						wlr_log(WLR_DEBUG,
-								"$TERMINAL not found. Running directly");
-					}
-					execlp("sh", "sh", "-c", button->action, NULL);
-					wlr_log_errno(WLR_DEBUG, "execlp failed");
-					_exit(LAB_EXIT_FAILURE);
-				}
+				execlp("sh", "sh", "-c", button->action, NULL);
+				wlr_log_errno(WLR_DEBUG, "execlp failed");
+				_exit(LAB_EXIT_FAILURE);
 			}
 			_exit(EXIT_SUCCESS);
 		}
@@ -1359,10 +1319,8 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	};
 
 	static const struct option opts[] = {
-		{"button", required_argument, NULL, 'b'},
-		{"button-no-terminal", required_argument, NULL, 'B'},
-		{"button-dismiss", required_argument, NULL, 'z'},
-		{"button-dismiss-no-terminal", required_argument, NULL, 'Z'},
+		{"button", required_argument, NULL, 'B'},
+		{"button-dismiss", required_argument, NULL, 'Z'},
 		{"debug", no_argument, NULL, 'd'},
 		{"edge", required_argument, NULL, 'e'},
 		{"layer", required_argument, NULL, 'y'},
@@ -1397,16 +1355,9 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	const char *usage =
 		"Usage: nag [options...]\n"
 		"\n"
-		"  -b, --button <text> <action>  Create a button with text that "
-			"executes action in a terminal when pressed. Multiple buttons can "
-			"be defined.\n"
-		"  -B, --button-no-terminal <text> <action>  Like --button, but does "
-			"not run the action in a terminal.\n"
-		"  -z, --button-dismiss <text> <action>  Create a button with text that "
-			"dismisses nag, and executes action in a terminal when pressed. "
-			"Multiple buttons can be defined.\n"
-		"  -Z, --button-dismiss-no-terminal <text> <action>  Like "
-			"--button-dismiss, but does not run the action in a terminal.\n"
+		"  -B, --button <text> <action>    Create a button with text\n"
+		"  -Z, --button-dismiss <text> <action>\n"
+		"                                  Like -B but dismiss nag when pressed\n"
 		"  -d, --debug                     Enable debugging.\n"
 		"  -e, --edge top|bottom           Set the edge to use.\n"
 		"  -y, --layer overlay|top|bottom|background\n"
@@ -1440,15 +1391,13 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 
 	optind = 1;
 	while (1) {
-		int c = getopt_long(argc, argv, "b:B:z:Z:c:de:y:f:hlL:m:o:s:t:vx", opts, NULL);
+		int c = getopt_long(argc, argv, "B:Z:c:de:y:f:hlL:m:o:s:t:vx", opts, NULL);
 		if (c == -1) {
 			break;
 		}
 		switch (c) {
-		case 'b': /* Button */
-		case 'B': /* Button (No Terminal) */
-		case 'z': /* Button (Dismiss) */
-		case 'Z': /* Button (Dismiss, No Terminal) */
+		case 'B': /* Button */
+		case 'Z': /* Button (Dismiss) */
 			if (nag) {
 				if (optind >= argc) {
 					fprintf(stderr, "Missing action for button %s\n", optarg);
@@ -1462,8 +1411,7 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 				button->text = optarg;
 				button->type = LABNAG_ACTION_COMMAND;
 				button->action = argv[optind];
-				button->terminal = c == 'b';
-				button->dismiss = c == 'z' || c == 'Z';
+				button->dismiss = c == 'Z';
 				wl_list_insert(nag->buttons.prev, &button->link);
 			}
 			optind++;
