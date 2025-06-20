@@ -1325,7 +1325,7 @@ read_and_trim_stdin(void)
 		buffer = realloc(buffer, buffer_len + nread + 1);
 		if (!buffer) {
 			perror("realloc");
-			goto freebuf;
+			return NULL;
 		}
 		memcpy(&buffer[buffer_len], line, nread + 1);
 		buffer_len += nread;
@@ -1340,8 +1340,6 @@ read_and_trim_stdin(void)
 
 freeline:
 	free(line);
-freebuf:
-	free(buffer);
 	return NULL;
 }
 
