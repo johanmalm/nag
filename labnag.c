@@ -601,19 +601,12 @@ nag_destroy(struct nag *nag)
 {
 	nag->run_display = false;
 
-	free(nag->message);
-
 	struct button *button, *next;
 	wl_list_for_each_safe(button, next, &nag->buttons, link) {
 		wl_list_remove(&button->link);
-		free(button->text);
-		free(button->action);
 		free(button);
 	}
 	free(nag->details.message);
-	free(nag->details.details_text);
-	free(nag->details.button_up.text);
-	free(nag->details.button_down.text);
 
 	pango_font_description_free(nag->conf->font_description);
 
@@ -1468,9 +1461,9 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 					perror("calloc");
 					return LAB_EXIT_FAILURE;
 				}
-				button->text = strdup(optarg);
+				button->text = optarg;
 				button->type = LABNAG_ACTION_COMMAND;
-				button->action = strdup(argv[optind]);
+				button->action = argv[optind];
 				button->terminal = c == 'b';
 				button->dismiss = c == 'z' || c == 'Z';
 				wl_list_insert(nag->buttons.prev, &button->link);
@@ -1523,32 +1516,29 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 				if (!nag->details.message) {
 					return LAB_EXIT_FAILURE;
 				}
-				nag->details.button_up.text = strdup("▲");
-				nag->details.button_down.text = strdup("▼");
+				nag->details.button_up.text = "▲";
+				nag->details.button_down.text = "▼";
 			}
 			break;
 		case 'L': /* Detailed Button Text */
 			if (nag) {
-				free(nag->details.details_text);
-				nag->details.details_text = strdup(optarg);
+				nag->details.details_text = optarg;
 			}
 			break;
 		case 'm': /* Message */
 			if (nag) {
-				free(nag->message);
-				nag->message = strdup(optarg);
+				nag->message = optarg;
 			}
 			break;
 		case 'o': /* Output */
 			free(conf->output);
-			conf->output = strdup(optarg);
+			conf->output = optarg;
 			break;
 		case 's': /* Dismiss Button Text */
 			if (nag) {
 				struct button *button;
 				wl_list_for_each(button, &nag->buttons, link) {
-					free(button->text);
-					button->text = strdup(optarg);
+					button->text = optarg;
 					break;
 				}
 			}
@@ -1649,11 +1639,13 @@ main(int argc, char **argv)
 	wl_list_init(&nag.seats);
 
 	struct button *button_close = calloc(1, sizeof(*button_close));
-	button_close->text = strdup("X");
+	assert(button_close);
+	button_close->text = "X";
+	assert(button_close->text);
 	button_close->type = LABNAG_ACTION_DISMISS;
 	wl_list_insert(nag.buttons.prev, &button_close->link);
 
-	nag.details.details_text = strdup("Toggle details");
+	nag.details.details_text = "Toggle details";
 	nag.details.close_timeout = 5;
 	nag.details.close_timeout_cancel = true;
 	nag.details.use_exclusive_zone = false;
@@ -1675,7 +1667,9 @@ main(int argc, char **argv)
 
 	if (nag.details.message) {
 		nag.details.button_details = calloc(1, sizeof(struct button));
-		nag.details.button_details->text = strdup(nag.details.details_text);
+		assert(nag.details.button_details);
+		nag.details.button_details->text = nag.details.details_text;
+		assert(nag.details.button_details->text);
 		nag.details.button_details->type = LABNAG_ACTION_EXPAND;
 		wl_list_insert(nag.buttons.prev, &nag.details.button_details->link);
 	}

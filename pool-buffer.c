@@ -93,20 +93,25 @@ void destroy_buffer(struct pool_buffer *buffer)
 {
 	if (buffer->buffer) {
 		wl_buffer_destroy(buffer->buffer);
+		buffer->buffer = NULL;
 	}
 	if (buffer->cairo) {
 		cairo_destroy(buffer->cairo);
+		buffer->cairo = NULL;
 	}
 	if (buffer->surface) {
 		cairo_surface_destroy(buffer->surface);
+		buffer->surface = NULL;
 	}
 	if (buffer->pango) {
 		g_object_unref(buffer->pango);
+		buffer->pango = NULL;
 	}
 	if (buffer->data) {
 		munmap(buffer->data, buffer->size);
+		buffer->data = NULL;
 	}
-	memset(buffer, 0, sizeof(struct pool_buffer));
+	buffer = NULL;
 }
 
 struct pool_buffer *get_next_buffer(struct wl_shm *shm,
