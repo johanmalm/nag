@@ -153,8 +153,6 @@ struct nag {
 	} details;
 };
 
-static struct nag nag;
-
 static int exit_status = LAB_EXIT_FAILURE;
 
 static PangoLayout *
@@ -1557,10 +1555,12 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	return LAB_EXIT_SUCCESS;
 }
 
+static struct nag *_nag;
+
 static void
 sig_handler(int signal)
 {
-	nag_destroy(&nag);
+	nag_destroy(_nag);
 	exit(LAB_EXIT_FAILURE);
 }
 
@@ -1569,7 +1569,11 @@ main(int argc, char **argv)
 {
 	struct conf conf = { 0 };
 	conf_init(&conf);
-	nag.conf = &conf;
+
+	struct nag nag = {
+		.conf = &conf,
+	};
+	_nag = &nag;
 
 	wl_list_init(&nag.buttons);
 	wl_list_init(&nag.outputs);
@@ -1617,7 +1621,8 @@ main(int argc, char **argv)
 		wlr_log(WLR_DEBUG, "\t[%s] `%s`", button->text, button->action);
 	}
 
-	signal(SIGTERM, sig_handler);
+	struct sigaction sa = { .sa_handler = sig_handler };
+	sigaction(SIGTERM, &sa, NULL);
 
 	nag_setup(&nag);
 

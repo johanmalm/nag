@@ -13,6 +13,7 @@ add_project_arguments(
     '-D_POSIX_C_SOURCE=200809L',
     '-Wno-unused-parameter',
     '-fanalyzer',
+    '-Wshadow',
     '-DLABWC_VERSION="0.0.0"',
   ],
   language: 'c',
