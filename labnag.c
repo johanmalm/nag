@@ -24,10 +24,20 @@
 #include <signal.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include <wlr/util/log.h>
+//#include <wlr/util/log.h>
 #include "pool-buffer.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+
+#include <error.h>
+enum wlr_log_importance {
+	WLR_SILENT = 0,
+	WLR_ERROR,
+	WLR_INFO,
+	WLR_DEBUG
+};
+#define wlr_log(level, fmt, ...) fprintf(stderr, "[%s] " fmt "\n", #level, ## __VA_ARGS__)
+#define wlr_log_errno(level, fmt, ...) wlr_log(level, fmt ": %s", ##__VA_ARGS__, strerror(errno))
 
 #define LABNAG_MAX_HEIGHT 500
 #define LAB_EXIT_FAILURE 255
@@ -1665,7 +1675,7 @@ main(int argc, char **argv)
 			goto cleanup;
 		}
 	}
-	wlr_log_init(debug ? WLR_DEBUG : WLR_ERROR, NULL);
+	//wlr_log_init(debug ? WLR_DEBUG : WLR_ERROR, NULL);
 
 	if (!nag.message) {
 		wlr_log(WLR_ERROR, "No message passed. Please provide --message/-m");
