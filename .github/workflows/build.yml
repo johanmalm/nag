@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - 'meson.build'
+      - 'meson_options.txt'
+      - 'labnag.c'
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    name: build1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: prepare
+        run: |
+          apt update && apt upgrade -y
+          apt install -y libglib2.0-dev build-essentials meson
+
+      - name: build
+        run: |
+          meson setup build
+          meson compile -C build
