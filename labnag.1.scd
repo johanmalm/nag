@@ -63,9 +63,6 @@ _labnag_ [options...]
 *-o, --output* <output>
 	Set the output to use. This should be the name of a _xdg\_output_.
 
-*-s, --dismiss-button* <text>
-	Sets the text for the dismiss nagbar button. The default is _X_.
-
 *-t, --timeout*
 	Set duration to close dialog. Default is 5 seconds.
 

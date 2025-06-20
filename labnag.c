@@ -1372,7 +1372,6 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 		{"detailed-button", required_argument, NULL, 'L'},
 		{"message", required_argument, NULL, 'm'},
 		{"output", required_argument, NULL, 'o'},
-		{"dismiss-button", required_argument, NULL, 's'},
 		{"timeout", no_argument, NULL, 't'},
 		{"version", no_argument, NULL, 'v'},
 
@@ -1418,7 +1417,6 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 		"  -L, --detailed-button <text>    Set the text of the detail button.\n"
 		"  -m, --message <msg>             Set the message text.\n"
 		"  -o, --output <output>           Set the output to use.\n"
-		"  -s, --dismiss-button <text>     Set the dismiss button text.\n"
 		"  -t, --timeout <seconds>         Set duration to close dialog.\n"
 		"  -x, --exclusive-zone            Use exclusive zone.\n"
 		"  -v, --version                   Show the version number and quit.\n"
@@ -1534,15 +1532,6 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			free(conf->output);
 			conf->output = optarg;
 			break;
-		case 's': /* Dismiss Button Text */
-			if (nag) {
-				struct button *button;
-				wl_list_for_each(button, &nag->buttons, link) {
-					button->text = optarg;
-					break;
-				}
-			}
-			break;
 		case 't':
 			nag->details.close_timeout = atoi(optarg);
 			break;
@@ -1637,13 +1626,6 @@ main(int argc, char **argv)
 	wl_list_init(&nag.buttons);
 	wl_list_init(&nag.outputs);
 	wl_list_init(&nag.seats);
-
-	struct button *button_close = calloc(1, sizeof(*button_close));
-	assert(button_close);
-	button_close->text = "X";
-	assert(button_close->text);
-	button_close->type = LABNAG_ACTION_DISMISS;
-	wl_list_insert(nag.buttons.prev, &button_close->link);
 
 	nag.details.details_text = "Toggle details";
 	nag.details.close_timeout = 5;
