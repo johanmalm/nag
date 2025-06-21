@@ -589,6 +589,14 @@ nag_destroy(struct nag *nag)
 		wl_surface_destroy(nag->surface);
 	}
 
+	if (nag->layer_shell) {
+		zwlr_layer_shell_v1_destroy(nag->layer_shell);
+	}
+
+	if (nag->cursor_shape_manager) {
+		wp_cursor_shape_manager_v1_destroy(nag->cursor_shape_manager);
+	}
+
 	struct seat *seat, *tmpseat;
 	wl_list_for_each_safe(seat, tmpseat, &nag->seats, link) {
 		seat_destroy(seat);
