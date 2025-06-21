@@ -111,7 +111,6 @@ void destroy_buffer(struct pool_buffer *buffer)
 		munmap(buffer->data, buffer->size);
 		buffer->data = NULL;
 	}
-	buffer = NULL;
 }
 
 struct pool_buffer *get_next_buffer(struct wl_shm *shm,
