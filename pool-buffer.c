@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2016-2017 Drew DeVault
  */
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <cairo.h>
 #include <errno.h>
