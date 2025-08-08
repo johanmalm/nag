@@ -17,12 +17,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <signal.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <wlr/util/log.h>
@@ -62,12 +62,6 @@ struct conf {
 
 struct nag;
 
-enum action_type {
-	LABNAG_ACTION_DISMISS,
-	LABNAG_ACTION_EXPAND,
-	LABNAG_ACTION_COMMAND,
-};
-
 struct pointer {
 	struct wl_pointer *pointer;
 	uint32_t serial;
@@ -97,14 +91,22 @@ struct output {
 
 struct button {
 	char *text;
-	enum action_type type;
 	char *action;
 	int x;
 	int y;
 	int width;
 	int height;
+	bool expand;
 	bool dismiss;
 	struct wl_list link;
+};
+
+enum {
+	FD_WAYLAND,
+	FD_TIMER,
+	FD_SIGNAL,
+
+	NR_FDS,
 };
 
 struct nag {
@@ -131,6 +133,7 @@ struct nag {
 	struct conf *conf;
 	char *message;
 	struct wl_list buttons;
+	struct pollfd pollfds[NR_FDS];
 
 	struct {
 		bool visible;
@@ -155,6 +158,8 @@ struct nag {
 };
 
 static int exit_status = LAB_EXIT_FAILURE;
+
+static void close_pollfd(struct pollfd *pollfd);
 
 static PangoLayout *
 get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
@@ -628,6 +633,9 @@ nag_destroy(struct nag *nag)
 		wl_display_disconnect(nag->display);
 	}
 	pango_cairo_font_map_set_default(NULL);
+
+	close_pollfd(&nag->pollfds[FD_TIMER]);
+	close_pollfd(&nag->pollfds[FD_SIGNAL]);
 }
 
 static void
@@ -635,12 +643,15 @@ button_execute(struct nag *nag,
 		struct button *button)
 {
 	wlr_log(WLR_DEBUG, "Executing [%s]: %s", button->text, button->action);
-	if (button->type == LABNAG_ACTION_DISMISS) {
-		nag->run_display = false;
-	} else if (button->type == LABNAG_ACTION_EXPAND) {
+	if (button->expand) {
 		nag->details.visible = !nag->details.visible;
 		render_frame(nag);
-	} else {
+		return;
+	}
+	if (button->dismiss) {
+		nag->run_display = false;
+	}
+	if (button->action) {
 		pid_t pid = fork();
 		if (pid < 0) {
 			wlr_log_errno(WLR_DEBUG, "Failed to fork");
@@ -658,10 +669,6 @@ button_execute(struct nag *nag,
 				_exit(LAB_EXIT_FAILURE);
 			}
 			_exit(EXIT_SUCCESS);
-		}
-
-		if (button->dismiss) {
-			nag->run_display = false;
 		}
 
 		if (waitpid(pid, NULL, 0) < 0) {
@@ -900,7 +907,9 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32
 static void
 wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 {
-	/* nop */
+	struct seat *seat = data;
+	/* pointer inputs clears timer for auto-closing */
+	close_pollfd(&seat->nag->pollfds[FD_TIMER]);
 }
 
 static void
@@ -1046,7 +1055,7 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		seat->nag = nag;
 		seat->wl_name = name;
 		seat->wl_seat =
-			wl_registry_bind(registry, name, &wl_seat_interface, 1);
+			wl_registry_bind(registry, name, &wl_seat_interface, 5);
 
 		wl_seat_add_listener(seat->wl_seat, &seat_listener, seat);
 
@@ -1168,6 +1177,39 @@ nag_setup(struct nag *nag)
 			nag->conf->anchors);
 
 	wl_registry_destroy(registry);
+
+	nag->pollfds[FD_WAYLAND].fd = wl_display_get_fd(nag->display);
+	nag->pollfds[FD_WAYLAND].events = POLLIN;
+
+	if (nag->details.close_timeout != 0) {
+		nag->pollfds[FD_TIMER].fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+		nag->pollfds[FD_TIMER].events = POLLIN;
+		struct itimerspec timeout = {
+			.it_value.tv_sec = nag->details.close_timeout,
+		};
+		timerfd_settime(nag->pollfds[FD_TIMER].fd, 0, &timeout, NULL);
+	} else {
+		nag->pollfds[FD_TIMER].fd = -1;
+	}
+
+	sigset_t mask;
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGTERM);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+	nag->pollfds[FD_SIGNAL].fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
+	nag->pollfds[FD_SIGNAL].events = POLLIN;
+}
+
+static void
+close_pollfd(struct pollfd *pollfd)
+{
+	if (pollfd->fd == -1) {
+		return;
+	}
+	close(pollfd->fd);
+	pollfd->fd = -1;
+	pollfd->events = 0;
+	pollfd->revents = 0;
 }
 
 static void
@@ -1175,23 +1217,6 @@ nag_run(struct nag *nag)
 {
 	nag->run_display = true;
 	render_frame(nag);
-	int timer_fd = -1;
-	if (nag->details.close_timeout != 0) {
-		timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
-		struct itimerspec timeout = {
-			.it_value.tv_sec = nag->details.close_timeout,
-		};
-		timerfd_settime(timer_fd, 0, &timeout, NULL);
-	}
-	struct pollfd fds[] = {
-		{
-			.fd = wl_display_get_fd(nag->display),
-			.events = POLLIN,
-		}, {
-			.fd = timer_fd,
-			.events = POLLIN,
-		}
-	};
 	while (nag->run_display) {
 		while (wl_display_prepare_read(nag->display) != 0) {
 			wl_display_dispatch_pending(nag->display);
@@ -1199,25 +1224,24 @@ nag_run(struct nag *nag)
 
 		errno = 0;
 		if (wl_display_flush(nag->display) == -1 && errno != EAGAIN) {
-                        break;
-                }
+			break;
+		}
 
-		poll(fds, 2, -1);
-		if (fds[0].revents & POLLIN) {
-			if (timer_fd >= 0 && nag->details.close_timeout_cancel) {
-				close(timer_fd);
-				timer_fd = -1;
-				fds[1].fd = -1;
-			}
+		if (!nag->run_display) {
+			break;
+		}
+
+		poll(nag->pollfds, NR_FDS, -1);
+		if (nag->pollfds[FD_WAYLAND].revents & POLLIN) {
 			wl_display_read_events(nag->display);
 		} else {
 			wl_display_cancel_read(nag->display);
 		}
-		if (timer_fd >= 0 && fds[1].revents & POLLIN) {
-			close(timer_fd);
-			timer_fd = -1;
-			fds[1].fd = -1;
-			nag->run_display = false;
+		if (nag->pollfds[FD_TIMER].revents & POLLIN) {
+			break;
+		}
+		if (nag->pollfds[FD_SIGNAL].revents & POLLIN) {
+			break;
 		}
 	}
 }
@@ -1410,29 +1434,23 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 		}
 		switch (c) {
 		case 'B': /* Button */
-		case 'Z': /* Button (Dismiss) */
-			if (nag) {
-				if (optind >= argc) {
-					fprintf(stderr, "Missing action for button %s\n", optarg);
-					return LAB_EXIT_FAILURE;
-				}
-				struct button *button = calloc(1, sizeof(*button));
-				if (!button) {
-					perror("calloc");
-					return LAB_EXIT_FAILURE;
-				}
-				button->text = optarg;
-				button->type = LABNAG_ACTION_COMMAND;
+		case 'Z': /* Button (Dismiss) */ {
+			struct button *button = calloc(1, sizeof(*button));
+			if (!button) {
+				perror("calloc");
+				return LAB_EXIT_FAILURE;
+			}
+			if (argv[optind] && argv[optind][0] != '-') {
 				button->action = argv[optind];
-				button->dismiss = c == 'Z';
-				wl_list_insert(nag->buttons.prev, &button->link);
+				optind++;
 			}
-			optind++;
+			button->text = optarg;
+			button->dismiss = c == 'Z';
+			wl_list_insert(&nag->buttons, &button->link);
 			break;
+		}
 		case 'd': /* Debug */
-			if (debug) {
-				*debug = true;
-			}
+			*debug = true;
 			break;
 		case 'e': /* Edge */
 			if (strcmp(optarg, "top") == 0) {
@@ -1469,25 +1487,19 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 			conf->font_description = pango_font_description_from_string(optarg);
 			break;
 		case 'l': /* Detailed Message */
-			if (nag) {
-				free(nag->details.message);
-				nag->details.message = read_and_trim_stdin();
-				if (!nag->details.message) {
-					return LAB_EXIT_FAILURE;
-				}
-				nag->details.button_up.text = "▲";
-				nag->details.button_down.text = "▼";
+			free(nag->details.message);
+			nag->details.message = read_and_trim_stdin();
+			if (!nag->details.message) {
+				return LAB_EXIT_FAILURE;
 			}
+			nag->details.button_up.text = "▲";
+			nag->details.button_down.text = "▼";
 			break;
 		case 'L': /* Detailed Button Text */
-			if (nag) {
-				nag->details.details_text = optarg;
-			}
+			nag->details.details_text = optarg;
 			break;
 		case 'm': /* Message */
-			if (nag) {
-				nag->message = optarg;
-			}
+			nag->message = optarg;
 			break;
 		case 'o': /* Output */
 			free(conf->output);
@@ -1570,15 +1582,6 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	return LAB_EXIT_SUCCESS;
 }
 
-static struct nag *_nag;
-
-static void
-sig_handler(int signal)
-{
-	nag_destroy(_nag);
-	exit(LAB_EXIT_FAILURE);
-}
-
 int
 main(int argc, char **argv)
 {
@@ -1588,7 +1591,6 @@ main(int argc, char **argv)
 	struct nag nag = {
 		.conf = &conf,
 	};
-	_nag = &nag;
 
 	wl_list_init(&nag.buttons);
 	wl_list_init(&nag.outputs);
@@ -1619,7 +1621,7 @@ main(int argc, char **argv)
 		assert(nag.details.button_details);
 		nag.details.button_details->text = nag.details.details_text;
 		assert(nag.details.button_details->text);
-		nag.details.button_details->type = LABNAG_ACTION_EXPAND;
+		nag.details.button_details->expand = true;
 		wl_list_insert(nag.buttons.prev, &nag.details.button_details->link);
 	}
 
@@ -1635,9 +1637,6 @@ main(int argc, char **argv)
 	wl_list_for_each(button, &nag.buttons, link) {
 		wlr_log(WLR_DEBUG, "\t[%s] `%s`", button->text, button->action);
 	}
-
-	struct sigaction sa = { .sa_handler = sig_handler };
-	sigaction(SIGTERM, &sa, NULL);
 
 	nag_setup(&nag);
 
