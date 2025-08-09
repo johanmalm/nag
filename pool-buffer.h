@@ -4,8 +4,8 @@
  *
  * Copyright (C) 2016-2017 Drew DeVault
  */
-#ifndef BUFFERS_H
-#define BUFFERS_H
+#ifndef LAB_POOL_BUFFER_H
+#define LAB_POOL_BUFFER_H
 #include <cairo.h>
 #include <pango/pangocairo.h>
 #include <stdbool.h>
@@ -27,4 +27,4 @@ struct pool_buffer *get_next_buffer(struct wl_shm *shm,
 		struct pool_buffer pool[static 2], uint32_t width, uint32_t height);
 void destroy_buffer(struct pool_buffer *buffer);
 
-#endif
+#endif /* LAB_POOL_BUFFER_H */

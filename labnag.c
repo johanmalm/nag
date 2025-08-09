@@ -17,6 +17,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
+#ifdef __FreeBSD__
+#include <sys/event.h> /* For signalfd() */
+#endif
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/timerfd.h>
@@ -140,7 +143,6 @@ struct nag {
 		char *message;
 		char *details_text;
 		int close_timeout;
-		bool close_timeout_cancel;
 		bool use_exclusive_zone;
 
 		int x;
@@ -176,8 +178,8 @@ get_pango_layout(cairo_t *cairo, const PangoFontDescription *desc,
 			pango_layout_set_text(layout, buf, -1);
 			free(buf);
 		} else {
-			wlr_log(WLR_ERROR, "pango_parse_markup '%s' -> error %s", text,
-					error->message);
+			wlr_log(WLR_ERROR, "pango_parse_markup '%s' -> error %s",
+				text, error->message);
 			g_error_free(error);
 			markup = false; /* fallback to plain text */
 		}
@@ -219,8 +221,8 @@ get_text_size(cairo_t *cairo, const PangoFontDescription *desc, int *width, int 
 }
 
 static void
-render_text(cairo_t *cairo, const PangoFontDescription *desc,
-		double scale, bool markup, const char *fmt, ...)
+render_text(cairo_t *cairo, const PangoFontDescription *desc, double scale,
+		bool markup, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -256,8 +258,8 @@ static uint32_t
 render_message(cairo_t *cairo, struct nag *nag)
 {
 	int text_width, text_height;
-	get_text_size(cairo, nag->conf->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", nag->message);
+	get_text_size(cairo, nag->conf->font_description, &text_width,
+		&text_height, NULL, 1, true, "%s", nag->message);
 
 	int padding = nag->conf->message_padding;
 
@@ -276,12 +278,12 @@ render_message(cairo_t *cairo, struct nag *nag)
 }
 
 static void
-render_details_scroll_button(cairo_t *cairo,
-		struct nag *nag, struct button *button)
+render_details_scroll_button(cairo_t *cairo, struct nag *nag,
+		struct button *button)
 {
 	int text_width, text_height;
-	get_text_size(cairo, nag->conf->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", button->text);
+	get_text_size(cairo, nag->conf->font_description, &text_width,
+		&text_height, NULL, 1, true, "%s", button->text);
 
 	int border = nag->conf->button_border_thickness;
 	int padding = nag->conf->button_padding;
@@ -293,7 +295,8 @@ render_details_scroll_button(cairo_t *cairo,
 
 	cairo_set_source_u32(cairo, nag->conf->button_background);
 	cairo_rectangle(cairo, button->x + border, button->y + border,
-			button->width - (border * 2), button->height - (border * 2));
+			button->width - (border * 2),
+			button->height - (border * 2));
 	cairo_fill(cairo);
 
 	cairo_set_source_u32(cairo, nag->conf->button_text);
@@ -304,16 +307,13 @@ render_details_scroll_button(cairo_t *cairo,
 }
 
 static int
-get_detailed_scroll_button_width(cairo_t *cairo,
-		struct nag *nag)
+get_detailed_scroll_button_width(cairo_t *cairo, struct nag *nag)
 {
 	int up_width, down_width, temp_height;
-	get_text_size(cairo, nag->conf->font_description, &up_width, &temp_height, NULL,
-			1, true,
-			"%s", nag->details.button_up.text);
-	get_text_size(cairo, nag->conf->font_description, &down_width, &temp_height, NULL,
-			1, true,
-			"%s", nag->details.button_down.text);
+	get_text_size(cairo, nag->conf->font_description, &up_width, &temp_height,
+		NULL, 1, true, "%s", nag->details.button_up.text);
+	get_text_size(cairo, nag->conf->font_description, &down_width, &temp_height,
+		NULL, 1, true, "%s", nag->details.button_down.text);
 
 	int text_width =  up_width > down_width ? up_width : down_width;
 	int border = nag->conf->button_border_thickness;
@@ -323,8 +323,7 @@ get_detailed_scroll_button_width(cairo_t *cairo,
 }
 
 static uint32_t
-render_detailed(cairo_t *cairo, struct nag *nag,
-		uint32_t y)
+render_detailed(cairo_t *cairo, struct nag *nag, uint32_t y)
 {
 	uint32_t width = nag->width;
 
@@ -388,22 +387,18 @@ render_detailed(cairo_t *cairo, struct nag *nag,
 	nag->details.visible_lines = pango_layout_get_line_count(layout);
 
 	if (show_buttons) {
-		nag->details.button_up.x =
-			nag->details.x + nag->details.width;
+		nag->details.button_up.x = nag->details.x + nag->details.width;
 		nag->details.button_up.y = nag->details.y;
 		nag->details.button_up.width = button_width;
 		nag->details.button_up.height = nag->details.height / 2;
-		render_details_scroll_button(cairo, nag,
-				&nag->details.button_up);
+		render_details_scroll_button(cairo, nag, &nag->details.button_up);
 
-		nag->details.button_down.x =
-			nag->details.x + nag->details.width;
+		nag->details.button_down.x = nag->details.x + nag->details.width;
 		nag->details.button_down.y =
 			nag->details.button_up.y + nag->details.button_up.height;
 		nag->details.button_down.width = button_width;
 		nag->details.button_down.height = nag->details.height / 2;
-		render_details_scroll_button(cairo, nag,
-				&nag->details.button_down);
+		render_details_scroll_button(cairo, nag, &nag->details.button_down);
 	}
 
 	cairo_set_source_u32(cairo, nag->conf->details_background);
@@ -411,8 +406,7 @@ render_detailed(cairo_t *cairo, struct nag *nag,
 			nag->details.width, nag->details.height);
 	cairo_fill(cairo);
 
-	cairo_move_to(cairo, nag->details.x + padding,
-			nag->details.y + padding);
+	cairo_move_to(cairo, nag->details.x + padding, nag->details.y + padding);
 	cairo_set_source_u32(cairo, nag->conf->text);
 	pango_cairo_show_layout(cairo, layout);
 	g_object_unref(layout);
@@ -421,12 +415,11 @@ render_detailed(cairo_t *cairo, struct nag *nag,
 }
 
 static uint32_t
-render_button(cairo_t *cairo, struct nag *nag,
-		struct button *button, int *x)
+render_button(cairo_t *cairo, struct nag *nag, struct button *button, int *x)
 {
 	int text_width, text_height;
-	get_text_size(cairo, nag->conf->font_description, &text_width, &text_height, NULL,
-			1, true, "%s", button->text);
+	get_text_size(cairo, nag->conf->font_description, &text_width,
+		&text_height, NULL, 1, true, "%s", button->text);
 
 	int border = nag->conf->button_border_thickness;
 	int padding = nag->conf->button_padding;
@@ -639,8 +632,7 @@ nag_destroy(struct nag *nag)
 }
 
 static void
-button_execute(struct nag *nag,
-		struct button *button)
+button_execute(struct nag *nag, struct button *button)
 {
 	wlr_log(WLR_DEBUG, "Executing [%s]: %s", button->text, button->action);
 	if (button->expand) {
@@ -657,13 +649,19 @@ button_execute(struct nag *nag,
 			wlr_log_errno(WLR_DEBUG, "Failed to fork");
 			return;
 		} else if (pid == 0) {
-			/* Child process. Will be used to prevent zombie processes */
+			/*
+			 * Child process. Will be used to prevent zombie
+			 * processes
+			 */
 			pid = fork();
 			if (pid < 0) {
 				wlr_log_errno(WLR_DEBUG, "Failed to fork");
 				return;
 			} else if (pid == 0) {
-				/* Child of the child. Will be reparented to the init process */
+				/*
+				 * Child of the child. Will be reparented to the
+				 * init process
+				 */
 				execlp("sh", "sh", "-c", button->action, NULL);
 				wlr_log_errno(WLR_DEBUG, "execlp failed");
 				_exit(LAB_EXIT_FAILURE);
@@ -753,7 +751,8 @@ update_cursor(struct seat *seat)
 		wlr_log(WLR_ERROR, "Failed to load cursor theme");
 		return;
 	}
-	struct wl_cursor *cursor = wl_cursor_theme_get_cursor(pointer->cursor_theme, "default");
+	struct wl_cursor *cursor =
+		wl_cursor_theme_get_cursor(pointer->cursor_theme, "default");
 	if (!cursor) {
 		wlr_log(WLR_ERROR, "Failed to get default cursor from theme");
 		return;
@@ -785,7 +784,8 @@ update_all_cursors(struct nag *nag)
 
 static void
 wl_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
-		struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
+		struct wl_surface *surface, wl_fixed_t surface_x,
+		wl_fixed_t surface_y)
 {
 	struct seat *seat = data;
 
@@ -814,8 +814,8 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
 }
 
 static void
-wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x,
-		wl_fixed_t surface_y)
+wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
+		wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
 	struct seat *seat = data;
 	seat->pointer.x = wl_fixed_to_int(surface_x);
@@ -823,8 +823,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_f
 }
 
 static void
-wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time,
-		uint32_t button, uint32_t state)
+wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
+		uint32_t time, uint32_t button, uint32_t state)
 {
 	struct seat *seat = data;
 	struct nag *nag = seat->nag;
@@ -879,8 +879,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, ui
 }
 
 static void
-wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis,
-		wl_fixed_t value)
+wl_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time,
+		uint32_t axis, wl_fixed_t value)
 {
 	struct seat *seat = data;
 	struct nag *nag = seat->nag;
@@ -946,7 +946,8 @@ static const struct wl_pointer_listener pointer_listener = {
 };
 
 static void
-seat_handle_capabilities(void *data, struct wl_seat *wl_seat, enum wl_seat_capability caps)
+seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
+		enum wl_seat_capability caps)
 {
 	struct seat *seat = data;
 	bool cap_pointer = caps & WL_SEAT_CAPABILITY_POINTER;
@@ -1038,8 +1039,8 @@ static const struct wl_output_listener output_listener = {
 };
 
 static void
-handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface,
-		uint32_t version)
+handle_global(void *data, struct wl_registry *registry, uint32_t name,
+		const char *interface, uint32_t version)
 {
 	struct nag *nag = data;
 	if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -1297,12 +1298,18 @@ parse_color(const char *color, uint32_t *result)
 	return true;
 }
 
+/*
+ * As labnag is slow for large "detailed messages" we curtail stdin at an
+ * arbitrary size to avoid hogging the CPU.
+ */
+#define MAX_STDIN_LINES 200
 static char *
 read_and_trim_stdin(void)
 {
 	char *buffer = NULL, *line = NULL;
 	size_t buffer_len = 0, line_size = 0;
-	while (1) {
+	int line_count = 0;
+	while (line_count < MAX_STDIN_LINES) {
 		ssize_t nread = getline(&line, &line_size, stdin);
 		if (nread == -1) {
 			if (feof(stdin)) {
@@ -1319,6 +1326,7 @@ read_and_trim_stdin(void)
 		}
 		memcpy(&buffer[buffer_len], line, nread + 1);
 		buffer_len += nread;
+		++line_count;
 	}
 	free(line);
 
@@ -1392,8 +1400,8 @@ nag_parse_options(int argc, char **argv, struct nag *nag,
 	const char *usage =
 		"Usage: nag [options...]\n"
 		"\n"
-		"  -B, --button <text> <action>    Create a button with text\n"
-		"  -Z, --button-dismiss <text> <action>\n"
+		"  -B, --button <text> [<action>]  Create a button with text\n"
+		"  -Z, --button-dismiss <text> [<action>]\n"
 		"                                  Like -B but dismiss nag when pressed\n"
 		"  -d, --debug                     Enable debugging.\n"
 		"  -e, --edge top|bottom           Set the edge to use.\n"
@@ -1598,7 +1606,6 @@ main(int argc, char **argv)
 
 	nag.details.details_text = "Toggle details";
 	nag.details.close_timeout = 5;
-	nag.details.close_timeout_cancel = true;
 	nag.details.use_exclusive_zone = false;
 
 	bool debug = false;
